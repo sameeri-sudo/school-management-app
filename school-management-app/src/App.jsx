@@ -5,6 +5,7 @@ import ClassSummary from './pages/ClassSummary';
 import AttendanceAnalytics from './pages/AttendanceAnalytics';
 import AllStudentsDirectory from './pages/AllStudentsDirectory';
 import ClassStudentManager from './pages/ClassStudentManager';
+import ClassResultManager from './pages/ClassResultManager';
 
 export default function App() {
   const [role, setRole] = useState(null); // 'hm', 'teacher', or null
@@ -106,11 +107,13 @@ export default function App() {
     { id: 'entry', label: 'HM Approval', icon: '📋' },
     { id: 'manage_students', label: 'Manage Students', icon: '👥' },
     { id: 'directory', label: 'Students Directory', icon: '📖' },
+    { id: 'results', label: 'Exam Results', icon: '📝' },
     { id: 'summary', label: 'Overview Summary', icon: '📊' },
     { id: 'analytics', label: 'Analytics', icon: '📈' },
   ] : [
     { id: 'entry', label: `${lockedClass} Entry`, icon: '📋' },
     { id: 'directory', label: 'Students Directory', icon: '📖' },
+    { id: 'results', label: 'Exam Results', icon: '📝' },
     { id: 'summary', label: 'Overview Summary', icon: '📊' },
     { id: 'analytics', label: 'Analytics', icon: '📈' },
   ];
@@ -207,6 +210,7 @@ export default function App() {
           )}
           {activeTab === 'manage_students' && role === 'hm' && <ClassStudentManager />}
           {activeTab === 'directory' && <AllStudentsDirectory />}
+          {activeTab === 'results' && <ClassResultManager />}
           {activeTab === 'summary' && <ClassSummary />}
           {activeTab === 'analytics' && <AttendanceAnalytics />}
         </div>
