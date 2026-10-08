@@ -335,84 +335,84 @@ export default function ClassResultManager() {
 
       {/* Printable Report Card Template (Only visible during print) */}
       {selectedStudentForCard && (
-        <div className="hidden print:block p-8 bg-white text-black font-sans max-w-2xl mx-auto border-2 border-slate-800 rounded-xl my-4">
-          <div className="text-center border-b-2 border-slate-800 pb-4 mb-6">
-            <h1 className="text-2xl font-bold uppercase tracking-wider">Al-Madni Secondary School B.A.B. Matiari</h1>
-            <p className="text-sm font-medium text-slate-600">Official Student Academic Report Card</p>
-            <p className="text-xs text-slate-500 mt-1">Term: {term}</p>
+        <div className="hidden print:block p-4 bg-white text-black font-sans max-w-2xl mx-auto border border-slate-800 rounded-lg my-0">
+          <div className="text-center border-b border-slate-800 pb-2 mb-3">
+            <h1 className="text-xl font-bold uppercase tracking-wider">Al-Madni Secondary School B.A.B. Matiari</h1>
+            <p className="text-xs font-medium text-slate-600">Official Student Academic Report Card</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">Term: {term}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-6 text-sm bg-slate-50 p-4 rounded-lg border border-slate-200">
+          <div className="grid grid-cols-2 gap-2 mb-3 text-xs bg-slate-50 p-2.5 rounded border border-slate-200">
             <div><strong>Student Name:</strong> {selectedStudentForCard.full_name}</div>
             <div><strong>GR Number:</strong> {selectedStudentForCard.gr_number}</div>
             <div><strong>Father's Name:</strong> {selectedStudentForCard.father_name}</div>
             <div><strong>Class:</strong> {selectedStudentForCard.class_name}</div>
           </div>
 
-          <table className="w-full border-collapse border border-slate-800 mb-6 text-sm">
+          <table className="w-full border-collapse border border-slate-800 mb-3 text-xs">
             <thead>
               <tr className="bg-slate-200 text-slate-900">
-                <th className="border border-slate-800 p-2 text-left">Subject</th>
-                <th className="border border-slate-800 p-2 text-center">Max Marks</th>
-                <th className="border border-slate-800 p-2 text-center">Obtained Marks</th>
+                <th className="border border-slate-800 p-1.5 text-left">Subject</th>
+                <th className="border border-slate-800 p-1.5 text-center">Max Marks</th>
+                <th className="border border-slate-800 p-1.5 text-center">Obtained Marks</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td className="border border-slate-800 p-2">Mathematics</td>
-                <td className="border border-slate-800 p-2 text-center">100</td>
-                <td className="border border-slate-800 p-2 text-center">{marksData[selectedStudentForCard.gr_number]?.math_marks || 0}</td>
+                <td className="border border-slate-800 p-1.5">Mathematics</td>
+                <td className="border border-slate-800 p-1.5 text-center">100</td>
+                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.math_marks || 0}</td>
               </tr>
               <tr>
-                <td className="border border-slate-800 p-2">English</td>
-                <td className="border border-slate-800 p-2 text-center">100</td>
-                <td className="border border-slate-800 p-2 text-center">{marksData[selectedStudentForCard.gr_number]?.english_marks || 0}</td>
+                <td className="border border-slate-800 p-1.5">English</td>
+                <td className="border border-slate-800 p-1.5 text-center">100</td>
+                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.english_marks || 0}</td>
               </tr>
               <tr>
-                <td className="border border-slate-800 p-2">Science</td>
-                <td className="border border-slate-800 p-2 text-center">100</td>
-                <td className="border border-slate-800 p-2 text-center">{marksData[selectedStudentForCard.gr_number]?.science_marks || 0}</td>
+                <td className="border border-slate-800 p-1.5">Science</td>
+                <td className="border border-slate-800 p-1.5 text-center">100</td>
+                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.science_marks || 0}</td>
               </tr>
               <tr>
-                <td className="border border-slate-800 p-2">Sindhi</td>
-                <td className="border border-slate-800 p-2 text-center">100</td>
-                <td className="border border-slate-800 p-2 text-center">{marksData[selectedStudentForCard.gr_number]?.sindhi_marks || 0}</td>
+                <td className="border border-slate-800 p-1.5">Sindhi</td>
+                <td className="border border-slate-800 p-1.5 text-center">100</td>
+                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.sindhi_marks || 0}</td>
               </tr>
               <tr>
-                <td className="border border-slate-800 p-2">Social Studies</td>
-                <td className="border border-slate-800 p-2 text-center">100</td>
-                <td className="border border-slate-800 p-2 text-center">{marksData[selectedStudentForCard.gr_number]?.social_studies_marks || 0}</td>
+                <td className="border border-slate-800 p-1.5">Social Studies</td>
+                <td className="border border-slate-800 p-1.5 text-center">100</td>
+                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.social_studies_marks || 0}</td>
               </tr>
               <tr className="font-bold bg-slate-100">
-                <td className="border border-slate-800 p-2">Total</td>
-                <td className="border border-slate-800 p-2 text-center">500</td>
-                <td className="border border-slate-800 p-2 text-center">{calculateTotal(marksData[selectedStudentForCard.gr_number])}</td>
+                <td className="border border-slate-800 p-1.5">Total</td>
+                <td className="border border-slate-800 p-1.5 text-center">500</td>
+                <td className="border border-slate-800 p-1.5 text-center">{calculateTotal(marksData[selectedStudentForCard.gr_number])}</td>
               </tr>
             </tbody>
           </table>
 
-          <div className="grid grid-cols-3 gap-4 mb-8 text-center text-sm font-semibold">
-            <div className="border border-slate-800 p-3 rounded">
+          <div className="grid grid-cols-3 gap-2 mb-4 text-center text-xs font-semibold">
+            <div className="border border-slate-800 p-2 rounded">
               <div>Percentage</div>
-              <div className="text-lg text-blue-700 mt-1">{((calculateTotal(marksData[selectedStudentForCard.gr_number]) / 500) * 100).toFixed(1)}%</div>
+              <div className="text-sm text-blue-700 mt-0.5">{((calculateTotal(marksData[selectedStudentForCard.gr_number]) / 500) * 100).toFixed(1)}%</div>
             </div>
-            <div className="border border-slate-800 p-3 rounded">
+            <div className="border border-slate-800 p-2 rounded">
               <div>Grade</div>
-              <div className="text-lg text-green-700 mt-1">{calculateGrade((calculateTotal(marksData[selectedStudentForCard.gr_number]) / 500) * 100)}</div>
+              <div className="text-sm text-green-700 mt-0.5">{calculateGrade((calculateTotal(marksData[selectedStudentForCard.gr_number]) / 500) * 100)}</div>
             </div>
-            <div className="border border-slate-800 p-3 rounded">
+            <div className="border border-slate-800 p-2 rounded">
               <div>Remarks</div>
-              <div className="text-sm text-slate-700 mt-1">{marksData[selectedStudentForCard.gr_number]?.remarks || 'Passed'}</div>
+              <div className="text-xs text-slate-700 mt-0.5 truncate">{marksData[selectedStudentForCard.gr_number]?.remarks || 'Passed'}</div>
             </div>
           </div>
 
-          <div className="flex justify-between mt-16 pt-8 border-t border-slate-400 text-sm font-semibold">
+          <div className="flex justify-between mt-8 pt-4 border-t border-slate-400 text-xs font-semibold">
             <div className="text-center">
-              <div className="mb-8">______________________</div>
+              <div className="mb-4">______________________</div>
               <div>Class Teacher Signature</div>
             </div>
             <div className="text-center">
-              <div className="mb-8">______________________</div>
+              <div className="mb-4">______________________</div>
               <div>Headmaster Signature & Stamp</div>
             </div>
           </div>
