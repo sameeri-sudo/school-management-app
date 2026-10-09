@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
+const classSubjects = {
+  'Class 5': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 6': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 7': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 8': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 9': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics'],
+  'Class 10': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics']
+};
+
 export default function ClassResultManager() {
   const [selectedClass, setSelectedClass] = useState('Class 5');
   const [term, setTerm] = useState('Mid-Term 2026');
@@ -11,7 +20,8 @@ export default function ClassResultManager() {
   const [successMsg, setSuccessMsg] = useState('');
   const [selectedStudentForCard, setSelectedStudentForCard] = useState(null);
 
-  const classesList = ['Kachi', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
+  const classesList = ['Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
+  const currentSubjects = classSubjects[selectedClass] || [];
 
   useEffect(() => {
     fetchClassData();
@@ -38,27 +48,29 @@ export default function ClassResultManager() {
       if (resultError) throw resultError;
 
       const marksMap = {};
+      const subjects = classSubjects[selectedClass] || [];
+
       resultList?.forEach((res) => {
+        const savedMarks = res.marks || {};
         marksMap[res.student_id] = {
-          math_marks: res.math_marks ?? 0,
-          english_marks: res.english_marks ?? 0,
-          science_marks: res.science_marks ?? 0,
-          sindhi_marks: res.sindhi_marks ?? 0,
-          social_studies_marks: res.social_studies_marks ?? 0,
+          ...savedMarks,
           remarks: res.remarks || 'Passed',
         };
       });
 
       studentList?.forEach((st) => {
         if (!marksMap[st.gr_number]) {
-          marksMap[st.gr_number] = {
-            math_marks: 0,
-            english_marks: 0,
-            science_marks: 0,
-            sindhi_marks: 0,
-            social_studies_marks: 0,
-            remarks: 'Passed',
-          };
+          const defaultSubMarks = {};
+          subjects.forEach(sub => { defaultSubMarks[sub] = 0; });
+          defaultSubMarks.remarks = 'Passed';
+          marksMap[st.gr_number] = defaultSubMarks;
+        } else {
+          // Ensure all current subjects exist
+          subjects.forEach(sub => {
+            if (marksMap[st.gr_number][sub] === undefined) {
+              marksMap[st.gr_number][sub] = 0;
+            }
+          });
         }
       });
 
@@ -92,14 +104,8 @@ export default function ClassResultManager() {
     }));
   };
 
-  const calculateTotal = (marks) => {
-    return (
-      (Number(marks?.math_marks) || 0) +
-      (Number(marks?.english_marks) || 0) +
-      (Number(marks?.science_marks) || 0) +
-      (Number(marks?.sindhi_marks) || 0) +
-      (Number(marks?.social_studies_marks) || 0)
-    );
+  const calculateTotal = (studentMarks) => {
+    return currentSubjects.reduce((sum, sub) => sum + (Number(studentMarks?.[sub]) || 0), 0);
   };
 
   const calculateGrade = (percentage) => {
@@ -115,23 +121,30 @@ export default function ClassResultManager() {
     setSaving(true);
     setSuccessMsg('');
     try {
+      const maxScore = currentSubjects.length * 100;
+
       const recordsToUpsert = students.map((st) => {
         const m = marksData[st.gr_number] || {};
         const total = calculateTotal(m);
-        const percentage = total / 5;
+        const percentage = (total / maxScore) * 100;
         const grade = calculateGrade(percentage);
+
+        // Extract only subject marks into an object
+        const subjectMarksObj = {};
+        currentSubjects.forEach(sub => {
+          subjectMarksObj[sub] = m[sub] || 0;
+        });
 
         return {
           student_id: st.gr_number,
           class_name: selectedClass,
           term: term,
-          math_marks: m.math_marks,
-          english_marks: m.english_marks,
-          science_marks: m.science_marks,
-          sindhi_marks: m.sindhi_marks,
-          social_studies_marks: m.social_studies_marks,
+          marks: subjectMarksObj,
+          total_obtained: total,
+          total_max: maxScore,
+          percentage: Number(percentage.toFixed(2)),
           grade: grade,
-          remarks: m.remarks,
+          remarks: m.remarks || 'Passed',
         };
       });
 
@@ -158,12 +171,11 @@ export default function ClassResultManager() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      {/* Hide controls when printing individual report card */}
       <div className="print:hidden">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">Class-Wise Result & Report Cards</h1>
-            <p className="text-sm text-gray-500">Al-Madni Secondary School B.A.B. Matiari</p>
+            <p className="text-sm text-gray-500">Al-Madni Secondary School B.A.B. Matiari (Evening Shift)</p>
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
@@ -221,12 +233,10 @@ export default function ClassResultManager() {
                 <thead>
                   <tr className="bg-gray-50 text-gray-700 text-xs uppercase tracking-wider border-b">
                     <th className="p-3">GR # & Name</th>
-                    <th className="p-3 text-center">Math (100)</th>
-                    <th className="p-3 text-center">English (100)</th>
-                    <th className="p-3 text-center">Science (100)</th>
-                    <th className="p-3 text-center">Sindhi (100)</th>
-                    <th className="p-3 text-center">Social St. (100)</th>
-                    <th className="p-3 text-center">Total</th>
+                    {currentSubjects.map((sub) => (
+                      <th key={sub} className="p-3 text-center">{sub} (100)</th>
+                    ))}
+                    <th className="p-3 text-center">Total ({currentSubjects.length * 100})</th>
                     <th className="p-3 text-center">%</th>
                     <th className="p-3 text-center">Grade</th>
                     <th className="p-3">Remarks</th>
@@ -235,67 +245,30 @@ export default function ClassResultManager() {
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
                   {students.map((st) => {
-                    const m = marksData[st.gr_number] || { math_marks: 0, english_marks: 0, science_marks: 0, sindhi_marks: 0, social_studies_marks: 0, remarks: 'Passed' };
+                    const m = marksData[st.gr_number] || {};
                     const total = calculateTotal(m);
-                    const percentage = (total / 500) * 100;
+                    const maxScore = currentSubjects.length * 100;
+                    const percentage = (total / maxScore) * 100;
                     const grade = calculateGrade(percentage);
 
                     return (
                       <tr key={st.gr_number} className="hover:bg-gray-50 transition">
-                        <td className="p-3 font-medium text-gray-800">
+                        <td className="p-3 font-medium text-gray-800 whitespace-nowrap">
                           <div>{st.full_name}</div>
                           <div className="text-xs text-gray-400">GR: {st.gr_number} | S/o: {st.father_name}</div>
                         </td>
-                        <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={m.math_marks}
-                            onChange={(e) => handleMarkChange(st.gr_number, 'math_marks', e.target.value)}
-                            className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white"
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={m.english_marks}
-                            onChange={(e) => handleMarkChange(st.gr_number, 'english_marks', e.target.value)}
-                            className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white"
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={m.science_marks}
-                            onChange={(e) => handleMarkChange(st.gr_number, 'science_marks', e.target.value)}
-                            className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white"
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={m.sindhi_marks}
-                            onChange={(e) => handleMarkChange(st.gr_number, 'sindhi_marks', e.target.value)}
-                            className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white"
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={m.social_studies_marks}
-                            onChange={(e) => handleMarkChange(st.gr_number, 'social_studies_marks', e.target.value)}
-                            className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white"
-                          />
-                        </td>
+                        {currentSubjects.map((sub) => (
+                          <td key={sub} className="p-3 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={m[sub] ?? 0}
+                              onChange={(e) => handleMarkChange(st.gr_number, sub, e.target.value)}
+                              className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white"
+                            />
+                          </td>
+                        ))}
                         <td className="p-3 text-center font-bold text-gray-700">{total}</td>
                         <td className="p-3 text-center font-semibold text-blue-600">{percentage.toFixed(1)}%</td>
                         <td className="p-3 text-center">
@@ -310,7 +283,7 @@ export default function ClassResultManager() {
                         <td className="p-3">
                           <input
                             type="text"
-                            value={m.remarks}
+                            value={m.remarks ?? 'Passed'}
                             onChange={(e) => handleRemarkChange(st.gr_number, e.target.value)}
                             className="w-32 border rounded p-1 text-xs bg-gray-50 focus:bg-white"
                           />
@@ -318,7 +291,7 @@ export default function ClassResultManager() {
                         <td className="p-3 text-center">
                           <button
                             onClick={() => printReportCard(st)}
-                            className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-xs font-semibold border border-indigo-200 transition"
+                            className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-xs font-semibold border border-indigo-200 transition whitespace-nowrap"
                           >
                             🖨️ Print
                           </button>
@@ -333,12 +306,12 @@ export default function ClassResultManager() {
         )}
       </div>
 
-      {/* Printable Report Card Template (Only visible during print) */}
+      {/* Printable Report Card Template (Single-page optimized) */}
       {selectedStudentForCard && (
         <div className="hidden print:block p-4 bg-white text-black font-sans max-w-2xl mx-auto border border-slate-800 rounded-lg my-0">
           <div className="text-center border-b border-slate-800 pb-2 mb-3">
             <h1 className="text-xl font-bold uppercase tracking-wider">Al-Madni Secondary School B.A.B. Matiari</h1>
-            <p className="text-xs font-medium text-slate-600">Official Student Academic Report Card</p>
+            <p className="text-xs font-medium text-slate-600">Official Student Academic Report Card (Evening Shift)</p>
             <p className="text-[11px] text-slate-500 mt-0.5">Term: {term}</p>
           </div>
 
@@ -358,34 +331,16 @@ export default function ClassResultManager() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="border border-slate-800 p-1.5">Mathematics</td>
-                <td className="border border-slate-800 p-1.5 text-center">100</td>
-                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.math_marks || 0}</td>
-              </tr>
-              <tr>
-                <td className="border border-slate-800 p-1.5">English</td>
-                <td className="border border-slate-800 p-1.5 text-center">100</td>
-                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.english_marks || 0}</td>
-              </tr>
-              <tr>
-                <td className="border border-slate-800 p-1.5">Science</td>
-                <td className="border border-slate-800 p-1.5 text-center">100</td>
-                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.science_marks || 0}</td>
-              </tr>
-              <tr>
-                <td className="border border-slate-800 p-1.5">Sindhi</td>
-                <td className="border border-slate-800 p-1.5 text-center">100</td>
-                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.sindhi_marks || 0}</td>
-              </tr>
-              <tr>
-                <td className="border border-slate-800 p-1.5">Social Studies</td>
-                <td className="border border-slate-800 p-1.5 text-center">100</td>
-                <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.social_studies_marks || 0}</td>
-              </tr>
+              {currentSubjects.map((sub) => (
+                <tr key={sub}>
+                  <td className="border border-slate-800 p-1.5">{sub}</td>
+                  <td className="border border-slate-800 p-1.5 text-center">100</td>
+                  <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.[sub] || 0}</td>
+                </tr>
+              ))}
               <tr className="font-bold bg-slate-100">
                 <td className="border border-slate-800 p-1.5">Total</td>
-                <td className="border border-slate-800 p-1.5 text-center">500</td>
+                <td className="border border-slate-800 p-1.5 text-center">{currentSubjects.length * 100}</td>
                 <td className="border border-slate-800 p-1.5 text-center">{calculateTotal(marksData[selectedStudentForCard.gr_number])}</td>
               </tr>
             </tbody>
@@ -394,15 +349,21 @@ export default function ClassResultManager() {
           <div className="grid grid-cols-3 gap-2 mb-4 text-center text-xs font-semibold">
             <div className="border border-slate-800 p-2 rounded">
               <div>Percentage</div>
-              <div className="text-sm text-blue-700 mt-0.5">{((calculateTotal(marksData[selectedStudentForCard.gr_number]) / 500) * 100).toFixed(1)}%</div>
+              <div className="text-sm text-blue-700 mt-0.5">
+                {((calculateTotal(marksData[selectedStudentForCard.gr_number]) / (currentSubjects.length * 100)) * 100).toFixed(1)}%
+              </div>
             </div>
             <div className="border border-slate-800 p-2 rounded">
               <div>Grade</div>
-              <div className="text-sm text-green-700 mt-0.5">{calculateGrade((calculateTotal(marksData[selectedStudentForCard.gr_number]) / 500) * 100)}</div>
+              <div className="text-sm text-green-700 mt-0.5">
+                {calculateGrade((calculateTotal(marksData[selectedStudentForCard.gr_number]) / (currentSubjects.length * 100)) * 100)}
+              </div>
             </div>
             <div className="border border-slate-800 p-2 rounded">
               <div>Remarks</div>
-              <div className="text-xs text-slate-700 mt-0.5 truncate">{marksData[selectedStudentForCard.gr_number]?.remarks || 'Passed'}</div>
+              <div className="text-xs text-slate-700 mt-0.5 truncate">
+                {marksData[selectedStudentForCard.gr_number]?.remarks || 'Passed'}
+              </div>
             </div>
           </div>
 
