@@ -6,52 +6,74 @@ import AllStudentsDirectory from './pages/AllStudentsDirectory';
 import ClassStudentManager from './pages/ClassStudentManager';
 import ClassResultManager from './pages/ClassResultManager';
 
-// Comprehensive Evening Shift Subject Matrix for Al-Madni School
-const eveningCurriculum = {
-  'Class 5': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
-  'Class 6': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
-  'Class 7': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
-  'Class 8': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
-  'Class 9': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics'],
-  'Class 10': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics']
-};
+// Complete Faculty & Subject Workload Directory
+const facultyWorkload = [
+  {
+    name: 'Sir Ali Haider',
+    subjects: ['English (Class 7, 8, 9, 10)', 'Social Studies (Class 8)']
+  },
+  {
+    name: 'Sir Sameer',
+    subjects: ['Chemistry (Class 9, 10)', 'English (Class 5)', 'Math (Class 5)', 'Pakistan Studies (Class 10)', 'Salees Urdu (Class 10)']
+  },
+  {
+    name: 'Sir Ali Gul Shah',
+    subjects: ['Islamiyat (Class 5, 7)', 'Salees Urdu (Class 5, 8)', 'English (Class 6)', 'Sindhi (Class 9)']
+  },
+  {
+    name: 'Sir Faizan',
+    subjects: ['Islamiyat (Class 8, 9)', 'Social Studies (Class 5, 6, 7)', 'Sindhi (Class 8)']
+  },
+  {
+    name: 'Sir Qadir',
+    subjects: ['Math (Class 6, 7, 8, 9, 10)', 'Physics (Class 9, 10)']
+  },
+  {
+    name: 'Sir Muhammad Khan',
+    subjects: ['Biology (Class 9, 10)', 'Science (Class 5, 6, 7, 8)']
+  },
+  {
+    name: 'Sir Zubair',
+    subjects: ['Sindhi (Class 5, 6, 7)', 'Salees Urdu (Class 6, 7)', 'Islamiyat (Class 6)']
+  }
+];
 
-// Teacher Portal showing all classes and subjects side-by-side
+// Teacher Portal showing Faculty Directory
 function TeacherPortal() {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-2xl shadow-md">
-        <h2 className="text-2xl font-bold">Teacher Portal - Curriculum Overview</h2>
+        <h2 className="text-2xl font-bold">Teacher Portal & Faculty Directory</h2>
         <p className="text-sm opacity-90 mt-1">Al-Madni Secondary School B.A.B. Matiari (Evening Shift)</p>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-2">Class-Wise Subject Breakdown</h3>
-        <p className="text-sm text-slate-500 mb-6">Review the assigned subjects and curriculum mapping across all evening classes:</p>
+        <h3 className="text-lg font-bold text-slate-800 mb-2">Faculty Teaching Workload</h3>
+        <p className="text-sm text-slate-500 mb-6">Overview of teacher assignments, classes, and subjects across the evening shift:</p>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Object.entries(eveningCurriculum).map(([className, subjects]) => (
-            <div key={className} className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {facultyWorkload.map((teacher, idx) => (
+            <div key={teacher.name} className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
-                  <h4 className="font-bold text-indigo-700 text-base">{className}</h4>
-                  <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold">
-                    {subjects.length} Subjects
+                <div className="flex items-center justify-between mb-2 border-b border-slate-200 pb-2">
+                  <h4 className="font-bold text-indigo-700 text-sm sm:text-base flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">
+                      {idx + 1}
+                    </span>
+                    {teacher.name}
+                  </h4>
+                  <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">
+                    {teacher.subjects.length} Assignments
                   </span>
                 </div>
-                <ul className="space-y-2 mb-4">
-                  {subjects.map((sub, idx) => (
-                    <li key={sub} className="text-xs sm:text-sm text-slate-700 flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">
-                        {idx + 1}
-                      </span>
+                <ul className="space-y-1.5 mt-2">
+                  {teacher.subjects.map((sub, sIdx) => (
+                    <li key={sIdx} className="text-xs sm:text-sm text-slate-700 flex items-start gap-2">
+                      <span className="text-indigo-500 font-bold">•</span>
                       <span>{sub}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
-              <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-200">
-                Max Marks: {subjects.length * 100} Total
               </div>
             </div>
           ))}
@@ -59,7 +81,7 @@ function TeacherPortal() {
       </div>
 
       <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-xs sm:text-sm">
-        ℹ️ <strong>Note:</strong> Attendance management is restricted to the Headmaster portal. You can use the <strong>Exam Results</strong> tab to enter and manage term marks for any class.
+        ℹ️ <strong>Note:</strong> Attendance tracking is managed exclusively by the Headmaster portal. Use the <strong>Exam Results</strong> tab to enter and grade term examinations.
       </div>
     </div>
   );
@@ -154,7 +176,6 @@ export default function App() {
     );
   }
 
-  // Navigation items based on role
   const navItems = role === 'hm' ? [
     { id: 'entry', label: 'HM Attendance', icon: '📋' },
     { id: 'manage_students', label: 'Manage Students', icon: '👥' },
