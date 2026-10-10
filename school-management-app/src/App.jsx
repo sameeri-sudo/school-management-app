@@ -6,61 +6,38 @@ import AllStudentsDirectory from './pages/AllStudentsDirectory';
 import ClassStudentManager from './pages/ClassStudentManager';
 import ClassResultManager from './pages/ClassResultManager';
 
-// Complete Faculty & Subject Workload Directory
-const facultyWorkload = [
-  {
-    name: 'Sir Ali Haider',
-    subjects: ['English (Class 7, 8, 9, 10)', 'Social Studies (Class 8)']
-  },
-  {
-    name: 'Sir Sameer',
-    subjects: ['Chemistry (Class 9, 10)', 'English (Class 5)', 'Math (Class 5)', 'Pakistan Studies (Class 10)', 'Salees Urdu (Class 10)']
-  },
-  {
-    name: 'Sir Ali Gul Shah',
-    subjects: ['Islamiyat (Class 5, 7)', 'Salees Urdu (Class 5, 8)', 'English (Class 6)', 'Sindhi (Class 9)']
-  },
-  {
-    name: 'Sir Faizan',
-    subjects: ['Islamiyat (Class 8, 9)', 'Social Studies (Class 5, 6, 7)', 'Sindhi (Class 8)']
-  },
-  {
-    name: 'Sir Qadir',
-    subjects: ['Math (Class 6, 7, 8, 9, 10)', 'Physics (Class 9, 10)']
-  },
-  {
-    name: 'Sir Muhammad Khan',
-    subjects: ['Biology (Class 9, 10)', 'Science (Class 5, 6, 7, 8)']
-  },
-  {
-    name: 'Sir Zubair',
-    subjects: ['Sindhi (Class 5, 6, 7)', 'Salees Urdu (Class 6, 7)', 'Islamiyat (Class 6)']
-  }
+const teacherWorkload = [
+  { name: 'Sir Ali Haider', subjects: ['English (Class 7, 8, 9, 10)', 'Social Studies (Class 8)'] },
+  { name: 'Sir Sameer', subjects: ['Chemistry (Class 9, 10)', 'English (Class 5)', 'Math (Class 5)', 'Pakistan Studies (Class 10)', 'Salees Urdu (Class 10)'] },
+  { name: 'Sir Ali Gul Shah', subjects: ['Islamiyat (Class 5, 7)', 'Salees Urdu (Class 5, 8)', 'English (Class 6)', 'Sindhi (Class 9)'] },
+  { name: 'Sir Faizan', subjects: ['Islamiyat (Class 8, 9)', 'Social Studies (Class 5, 6, 7)', 'Sindhi (Class 8)'] },
+  { name: 'Sir Qadir', subjects: ['Math (Class 6, 7, 8, 9, 10)', 'Physics (Class 9, 10)'] },
+  { name: 'Sir Muhammad Khan', subjects: ['Biology (Class 9, 10)', 'Science (Class 5, 6, 7, 8)'] },
+  { name: 'Sir Zubair', subjects: ['Sindhi (Class 5, 6, 7)', 'Salees Urdu (Class 6, 7)', 'Islamiyat (Class 6)'] }
 ];
 
-// Teacher Portal showing Faculty Directory
-function TeacherPortal() {
+function TeacherPortal({ teacherName }) {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-2xl shadow-md">
-        <h2 className="text-2xl font-bold">Teacher Portal & Faculty Directory</h2>
+        <h2 className="text-2xl font-bold">Welcome, {teacherName}</h2>
         <p className="text-sm opacity-90 mt-1">Al-Madni Secondary School B.A.B. Matiari (Evening Shift)</p>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-2">Faculty Teaching Workload</h3>
-        <p className="text-sm text-slate-500 mb-6">Overview of teacher assignments, classes, and subjects across the evening shift:</p>
+        <h3 className="text-lg font-bold text-slate-800 mb-2">Faculty Teaching Workload Directory</h3>
+        <p className="text-sm text-slate-500 mb-6">Review assigned subjects across the evening shift faculty:</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {facultyWorkload.map((teacher, idx) => (
-            <div key={teacher.name} className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col justify-between">
+          {teacherWorkload.map((teacher, idx) => (
+            <div key={teacher.name} className={`border rounded-xl p-4 shadow-xs flex flex-col justify-between ${teacher.name === teacherName ? 'bg-indigo-50/50 border-indigo-300' : 'bg-slate-50 border-slate-200'}`}>
               <div>
                 <div className="flex items-center justify-between mb-2 border-b border-slate-200 pb-2">
                   <h4 className="font-bold text-indigo-700 text-sm sm:text-base flex items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs">
                       {idx + 1}
                     </span>
-                    {teacher.name}
+                    {teacher.name} {teacher.name === teacherName && '(You)'}
                   </h4>
                   <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">
                     {teacher.subjects.length} Assignments
@@ -81,19 +58,29 @@ function TeacherPortal() {
       </div>
 
       <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-xs sm:text-sm">
-        ℹ️ <strong>Note:</strong> Attendance tracking is managed exclusively by the Headmaster portal. Use the <strong>Exam Results</strong> tab to enter and grade term examinations.
+        ℹ️ <strong>Tip:</strong> Click on the <strong>Exam Results</strong> tab in the sidebar to enter and update marks for your assigned subjects.
       </div>
     </div>
   );
 }
 
 export default function App() {
-  const [role, setRole] = useState(null); // 'hm', 'teacher', or null
-  const [activeTab, setActiveTab] = useState('portal'); // active navigation tab
+  const [role, setRole] = useState(null); // 'hm' or teacher username
+  const [activeTab, setActiveTab] = useState('portal');
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const teacherCredentials = {
+    'alihaider': { pass: 'haider123', name: 'Sir Ali Haider' },
+    'sameer': { pass: 'sameer123', name: 'Sir Sameer' },
+    'aligul': { pass: 'gul123', name: 'Sir Ali Gul Shah' },
+    'faizan': { pass: 'faizan123', name: 'Sir Faizan' },
+    'qadir': { pass: 'qadir123', name: 'Sir Qadir' },
+    'muhammadkhan': { pass: 'khan123', name: 'Sir Muhammad Khan' },
+    'zubair': { pass: 'zubair123', name: 'Sir Zubair' }
+  };
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -105,11 +92,11 @@ export default function App() {
     if (cleanId === 'hm' && cleanPass === 'hm') {
       setRole('hm');
       setActiveTab('entry');
-    } else if (cleanId === 'teacher' && cleanPass === 'teacher') {
-      setRole('teacher');
+    } else if (teacherCredentials[cleanId] && teacherCredentials[cleanId].pass === cleanPass) {
+      setRole(cleanId); // stores teacher username e.g. 'sameer'
       setActiveTab('portal');
     } else {
-      setError('Invalid credentials. Use hm/hm for Headmaster or teacher/teacher for Teacher Portal.');
+      setError('Invalid credentials. Use hm/hm or your teacher username and password.');
     }
   };
 
@@ -144,7 +131,7 @@ export default function App() {
               <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Username / ID</label>
               <input 
                 type="text" 
-                placeholder="e.g. hm or teacher"
+                placeholder="e.g. hm or sameer"
                 value={userId}
                 onChange={e => setUserId(e.target.value)}
                 className="w-full border border-slate-300 px-4 py-3 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -176,7 +163,10 @@ export default function App() {
     );
   }
 
-  const navItems = role === 'hm' ? [
+  const isHm = role === 'hm';
+  const currentTeacherName = !isHm ? teacherCredentials[role]?.name : 'Headmaster';
+
+  const navItems = isHm ? [
     { id: 'entry', label: 'HM Attendance', icon: '📋' },
     { id: 'manage_students', label: 'Manage Students', icon: '👥' },
     { id: 'directory', label: 'Students Directory', icon: '📖' },
@@ -205,7 +195,7 @@ export default function App() {
           </div>
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
-          {role === 'hm' ? 'Headmaster' : 'Teacher Portal'}
+          {isHm ? 'HM' : currentTeacherName}
         </span>
       </header>
 
@@ -230,7 +220,7 @@ export default function App() {
             <div>
               <h2 className="font-bold text-slate-800 text-sm leading-tight">Al-Madni School</h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {role === 'hm' ? 'Headmaster Portal' : 'Teacher Portal'}
+                {isHm ? 'Headmaster Portal' : currentTeacherName}
               </p>
             </div>
           </div>
@@ -269,13 +259,13 @@ export default function App() {
 
       <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 min-h-[80vh]">
-          {activeTab === 'entry' && role === 'hm' && <HmAttendance />}
-          {activeTab === 'portal' && role === 'teacher' && <TeacherPortal />}
-          {activeTab === 'manage_students' && role === 'hm' && <ClassStudentManager />}
+          {activeTab === 'entry' && isHm && <HmAttendance />}
+          {activeTab === 'portal' && !isHm && <TeacherPortal teacherName={currentTeacherName} />}
+          {activeTab === 'manage_students' && isHm && <ClassStudentManager />}
           {activeTab === 'directory' && <AllStudentsDirectory />}
-          {activeTab === 'results' && <ClassResultManager />}
-          {activeTab === 'summary' && role === 'hm' && <ClassSummary />}
-          {activeTab === 'analytics' && role === 'hm' && <AttendanceAnalytics />}
+          {activeTab === 'results' && <ClassResultManager currentUser={role} />}
+          {activeTab === 'summary' && isHm && <ClassSummary />}
+          {activeTab === 'analytics' && isHm && <AttendanceAnalytics />}
         </div>
       </main>
     </div>
