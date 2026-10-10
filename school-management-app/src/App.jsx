@@ -6,8 +6,8 @@ import AllStudentsDirectory from './pages/AllStudentsDirectory';
 import ClassStudentManager from './pages/ClassStudentManager';
 import ClassResultManager from './pages/ClassResultManager';
 
-// Define subjects mapping for teacher view
-const classSubjects = {
+// Comprehensive Evening Shift Subject Matrix for Al-Madni School
+const eveningCurriculum = {
   'Class 5': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
   'Class 6': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
   'Class 7': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
@@ -16,30 +16,42 @@ const classSubjects = {
   'Class 10': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics']
 };
 
-// Dedicated Teacher Portal Component for viewing assigned class & subjects
-function TeacherPortal({ lockedClass }) {
-  const subjects = classSubjects[lockedClass] || [];
-
+// Teacher Portal showing all classes and subjects side-by-side
+function TeacherPortal() {
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white p-6 rounded-2xl shadow-md">
-        <h2 className="text-2xl font-bold">Welcome, Teacher Portal</h2>
-        <p className="text-sm opacity-90 mt-1">Assigned Class: <span className="font-semibold underline">{lockedClass}</span></p>
+      <div className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-2xl shadow-md">
+        <h2 className="text-2xl font-bold">Teacher Portal - Curriculum Overview</h2>
+        <p className="text-sm opacity-90 mt-1">Al-Madni Secondary School B.A.B. Matiari (Evening Shift)</p>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-4">Assigned Curriculum & Subjects</h3>
-        <p className="text-sm text-slate-500 mb-4">You are responsible for grading and assessment for the following subjects in {lockedClass}:</p>
+        <h3 className="text-lg font-bold text-slate-800 mb-2">Class-Wise Subject Breakdown</h3>
+        <p className="text-sm text-slate-500 mb-6">Review the assigned subjects and curriculum mapping across all evening classes:</p>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {subjects.map((sub, idx) => (
-            <div key={sub} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
-              <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
-                {idx + 1}
-              </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Object.entries(eveningCurriculum).map(([className, subjects]) => (
+            <div key={className} className="bg-slate-50 border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between">
               <div>
-                <div className="font-semibold text-slate-800 text-sm">{sub}</div>
-                <div className="text-xs text-slate-400">Max Marks: 100</div>
+                <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-2">
+                  <h4 className="font-bold text-indigo-700 text-base">{className}</h4>
+                  <span className="text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-semibold">
+                    {subjects.length} Subjects
+                  </span>
+                </div>
+                <ul className="space-y-2 mb-4">
+                  {subjects.map((sub, idx) => (
+                    <li key={sub} className="text-xs sm:text-sm text-slate-700 flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold">
+                        {idx + 1}
+                      </span>
+                      <span>{sub}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-200">
+                Max Marks: {subjects.length * 100} Total
               </div>
             </div>
           ))}
@@ -47,7 +59,7 @@ function TeacherPortal({ lockedClass }) {
       </div>
 
       <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-xs sm:text-sm">
-        ℹ️ <strong>Note:</strong> Daily attendance management is restricted to the Headmaster portal. You can navigate to the <strong>Exam Results</strong> tab to enter and manage term marks for your students.
+        ℹ️ <strong>Note:</strong> Attendance management is restricted to the Headmaster portal. You can use the <strong>Exam Results</strong> tab to enter and manage term marks for any class.
       </div>
     </div>
   );
@@ -55,8 +67,7 @@ function TeacherPortal({ lockedClass }) {
 
 export default function App() {
   const [role, setRole] = useState(null); // 'hm', 'teacher', or null
-  const [lockedClass, setLockedClass] = useState(null); // e.g. 'Class 5'
-  const [activeTab, setActiveTab] = useState('entry'); // active navigation tab
+  const [activeTab, setActiveTab] = useState('portal'); // active navigation tab
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -71,25 +82,20 @@ export default function App() {
 
     if (cleanId === 'hm' && cleanPass === 'hm') {
       setRole('hm');
-      setLockedClass(null);
       setActiveTab('entry');
-    } else if (cleanId.startsWith('class') && cleanPass === cleanId) {
-      const classNum = cleanId.replace('class', '');
-      const formattedClass = `Class ${classNum}`;
+    } else if (cleanId === 'teacher' && cleanPass === 'teacher') {
       setRole('teacher');
-      setLockedClass(formattedClass);
       setActiveTab('portal');
     } else {
-      setError('Invalid credentials. Use hm/hm or class5/class5 through class10/class10.');
+      setError('Invalid credentials. Use hm/hm for Headmaster or teacher/teacher for Teacher Portal.');
     }
   };
 
   const handleLogout = () => {
     setRole(null);
-    setLockedClass(null);
     setUserId('');
     setPassword('');
-    setActiveTab('entry');
+    setActiveTab('portal');
     setIsSidebarOpen(false);
   };
 
@@ -116,7 +122,7 @@ export default function App() {
               <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Username / ID</label>
               <input 
                 type="text" 
-                placeholder="e.g. hm or class5"
+                placeholder="e.g. hm or teacher"
                 value={userId}
                 onChange={e => setUserId(e.target.value)}
                 className="w-full border border-slate-300 px-4 py-3 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -148,7 +154,7 @@ export default function App() {
     );
   }
 
-  // Navigation items based on role (Teachers don't get HM attendance/approval)
+  // Navigation items based on role
   const navItems = role === 'hm' ? [
     { id: 'entry', label: 'HM Attendance', icon: '📋' },
     { id: 'manage_students', label: 'Manage Students', icon: '👥' },
@@ -178,7 +184,7 @@ export default function App() {
           </div>
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
-          {role === 'hm' ? 'HM' : lockedClass}
+          {role === 'hm' ? 'Headmaster' : 'Teacher Portal'}
         </span>
       </header>
 
@@ -203,7 +209,7 @@ export default function App() {
             <div>
               <h2 className="font-bold text-slate-800 text-sm leading-tight">Al-Madni School</h2>
               <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {role === 'hm' ? 'Headmaster Portal' : `Teacher (${lockedClass})`}
+                {role === 'hm' ? 'Headmaster Portal' : 'Teacher Portal'}
               </p>
             </div>
           </div>
@@ -243,7 +249,7 @@ export default function App() {
       <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 min-h-[80vh]">
           {activeTab === 'entry' && role === 'hm' && <HmAttendance />}
-          {activeTab === 'portal' && role === 'teacher' && <TeacherPortal lockedClass={lockedClass} />}
+          {activeTab === 'portal' && role === 'teacher' && <TeacherPortal />}
           {activeTab === 'manage_students' && role === 'hm' && <ClassStudentManager />}
           {activeTab === 'directory' && <AllStudentsDirectory />}
           {activeTab === 'results' && <ClassResultManager />}
