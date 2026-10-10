@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import TeacherAttendance from './pages/TeacherAttendance';
 import HmAttendance from './pages/HmAttendance';
 import ClassSummary from './pages/ClassSummary';
 import AttendanceAnalytics from './pages/AttendanceAnalytics';
@@ -7,14 +6,61 @@ import AllStudentsDirectory from './pages/AllStudentsDirectory';
 import ClassStudentManager from './pages/ClassStudentManager';
 import ClassResultManager from './pages/ClassResultManager';
 
+// Define subjects mapping for teacher view
+const classSubjects = {
+  'Class 5': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 6': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 7': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 8': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
+  'Class 9': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics'],
+  'Class 10': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics']
+};
+
+// Dedicated Teacher Portal Component for viewing assigned class & subjects
+function TeacherPortal({ lockedClass }) {
+  const subjects = classSubjects[lockedClass] || [];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-indigo-500 to-blue-600 text-white p-6 rounded-2xl shadow-md">
+        <h2 className="text-2xl font-bold">Welcome, Teacher Portal</h2>
+        <p className="text-sm opacity-90 mt-1">Assigned Class: <span className="font-semibold underline">{lockedClass}</span></p>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+        <h3 className="text-lg font-bold text-slate-800 mb-4">Assigned Curriculum & Subjects</h3>
+        <p className="text-sm text-slate-500 mb-4">You are responsible for grading and assessment for the following subjects in {lockedClass}:</p>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {subjects.map((sub, idx) => (
+            <div key={sub} className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-3">
+              <span className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
+                {idx + 1}
+              </span>
+              <div>
+                <div className="font-semibold text-slate-800 text-sm">{sub}</div>
+                <div className="text-xs text-slate-400">Max Marks: 100</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-amber-800 text-xs sm:text-sm">
+        ℹ️ <strong>Note:</strong> Daily attendance management is restricted to the Headmaster portal. You can navigate to the <strong>Exam Results</strong> tab to enter and manage term marks for your students.
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [role, setRole] = useState(null); // 'hm', 'teacher', or null
-  const [lockedClass, setLockedClass] = useState(null); // e.g. 'Class 3'
+  const [lockedClass, setLockedClass] = useState(null); // e.g. 'Class 5'
   const [activeTab, setActiveTab] = useState('entry'); // active navigation tab
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For mobile drawer toggle
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -32,9 +78,9 @@ export default function App() {
       const formattedClass = `Class ${classNum}`;
       setRole('teacher');
       setLockedClass(formattedClass);
-      setActiveTab('entry');
+      setActiveTab('portal');
     } else {
-      setError('Invalid credentials. Use hm/hm or class1/class1 through class10/class10.');
+      setError('Invalid credentials. Use hm/hm or class5/class5 through class10/class10.');
     }
   };
 
@@ -70,7 +116,7 @@ export default function App() {
               <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Username / ID</label>
               <input 
                 type="text" 
-                placeholder="e.g. hm or class3"
+                placeholder="e.g. hm or class5"
                 value={userId}
                 onChange={e => setUserId(e.target.value)}
                 className="w-full border border-slate-300 px-4 py-3 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -102,25 +148,22 @@ export default function App() {
     );
   }
 
-  // Dynamic Navigation Items based on Role (HM gets student management, teachers get their class views)
+  // Navigation items based on role (Teachers don't get HM attendance/approval)
   const navItems = role === 'hm' ? [
-    { id: 'entry', label: 'HM Approval', icon: '📋' },
+    { id: 'entry', label: 'HM Attendance', icon: '📋' },
     { id: 'manage_students', label: 'Manage Students', icon: '👥' },
     { id: 'directory', label: 'Students Directory', icon: '📖' },
     { id: 'results', label: 'Exam Results', icon: '📝' },
     { id: 'summary', label: 'Overview Summary', icon: '📊' },
     { id: 'analytics', label: 'Analytics', icon: '📈' },
   ] : [
-    { id: 'entry', label: `${lockedClass} Entry`, icon: '📋' },
-    { id: 'directory', label: 'Students Directory', icon: '📖' },
+    { id: 'portal', label: 'Teacher Portal', icon: '🏫' },
     { id: 'results', label: 'Exam Results', icon: '📝' },
-    { id: 'summary', label: 'Overview Summary', icon: '📊' },
-    { id: 'analytics', label: 'Analytics', icon: '📈' },
+    { id: 'directory', label: 'Students Directory', icon: '📖' },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
-      {/* Mobile Top Navbar with Hamburger */}
       <header className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-3">
           <button 
@@ -139,7 +182,6 @@ export default function App() {
         </span>
       </header>
 
-      {/* Backdrop overlay for mobile drawer */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-slate-900/40 z-40 md:hidden backdrop-blur-xs"
@@ -147,7 +189,6 @@ export default function App() {
         />
       )}
 
-      {/* Sidebar Navigation */}
       <aside className={`
         fixed md:static inset-y-0 left-0 z-50
         w-64 bg-white border-r border-slate-200 p-5 flex flex-col justify-between
@@ -155,7 +196,6 @@ export default function App() {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <div>
-          {/* Logo / Brand Header */}
           <div className="flex items-center gap-3 pb-6 border-b border-slate-100 mb-6">
             <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center text-lg font-bold shadow-md shadow-indigo-100">
               🏫
@@ -168,7 +208,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Navigation Links */}
           <nav className="space-y-1.5">
             {navItems.map((item) => (
               <button
@@ -190,7 +229,6 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Sidebar Footer / Logout */}
         <div className="pt-6 border-t border-slate-100">
           <button 
             onClick={handleLogout}
@@ -202,17 +240,15 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto max-w-7xl">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 min-h-[80vh]">
-          {activeTab === 'entry' && (
-            role === 'hm' ? <HmAttendance /> : <TeacherAttendance lockedClass={lockedClass} />
-          )}
+          {activeTab === 'entry' && role === 'hm' && <HmAttendance />}
+          {activeTab === 'portal' && role === 'teacher' && <TeacherPortal lockedClass={lockedClass} />}
           {activeTab === 'manage_students' && role === 'hm' && <ClassStudentManager />}
           {activeTab === 'directory' && <AllStudentsDirectory />}
           {activeTab === 'results' && <ClassResultManager />}
-          {activeTab === 'summary' && <ClassSummary />}
-          {activeTab === 'analytics' && <AttendanceAnalytics />}
+          {activeTab === 'summary' && role === 'hm' && <ClassSummary />}
+          {activeTab === 'analytics' && role === 'hm' && <AttendanceAnalytics />}
         </div>
       </main>
     </div>
