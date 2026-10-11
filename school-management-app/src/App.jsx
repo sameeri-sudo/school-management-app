@@ -263,7 +263,7 @@ export default function App() {
           {activeTab === 'portal' && !isHm && <TeacherPortal teacherName={currentTeacherName} />}
           {activeTab === 'manage_students' && isHm && <ClassStudentManager />}
           {activeTab === 'directory' && <AllStudentsDirectory />}
-          {activeTab === 'results' && <ClassResultManager currentUser={role} />}
+          {activeTab === 'manage_students' && isHm && <ClassStudentManager currentUser={role} />}
           {activeTab === 'summary' && isHm && <ClassSummary />}
           {activeTab === 'analytics' && isHm && <AttendanceAnalytics />}
         </div>

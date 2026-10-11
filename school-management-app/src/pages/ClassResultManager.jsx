@@ -121,6 +121,15 @@ export default function ClassResultManager({ currentUser }) {
 
       if (studentError) throw studentError;
 
+      // Filter students: Teachers see only male students, HM sees all
+      const filteredStudents = (studentList || []).filter(st => {
+        if (isHm) return true;
+        const gender = (st.gender || '').trim().toLowerCase();
+        // If gender is explicitly female, filter it out for teachers
+        if (gender === 'female' || gender === 'f') return false;
+        return true;
+      });
+
       const { data: resultList, error: resultError } = await supabase
         .from('student_results')
         .select('*')
@@ -138,7 +147,7 @@ export default function ClassResultManager({ currentUser }) {
         };
       });
 
-      studentList?.forEach((st) => {
+      filteredStudents.forEach((st) => {
         if (!marksMap[st.gr_number]) {
           const defaultSubMarks = {};
           standardSubjects.forEach(sub => { defaultSubMarks[sub] = 0; });
@@ -153,7 +162,7 @@ export default function ClassResultManager({ currentUser }) {
         }
       });
 
-      setStudents(studentList || []);
+      setStudents(filteredStudents);
       setMarksData(marksMap);
     } catch (err) {
       console.error('Error fetching data:', err.message);
@@ -200,7 +209,6 @@ export default function ClassResultManager({ currentUser }) {
     setSaving(true);
     setSuccessMsg('');
     try {
-      // 1. Fetch all existing records for this class & term in one go
       const { data: existingRecords } = await supabase
         .from('student_results')
         .select('*')
@@ -212,7 +220,6 @@ export default function ClassResultManager({ currentUser }) {
         existingMap[rec.student_id] = rec;
       });
 
-      // 2. Build bulk upsert array
       const maxScore = standardSubjects.length * 100;
       const recordsToUpsert = students.map((st) => {
         const gr = st.gr_number;
@@ -224,7 +231,6 @@ export default function ClassResultManager({ currentUser }) {
           mergedMarks[sub] = m[sub] || 0;
         });
 
-        // Calculate total across all standard subjects
         let totalObtained = 0;
         standardSubjects.forEach(sub => {
           totalObtained += Number(mergedMarks[sub]) || 0;
@@ -246,7 +252,6 @@ export default function ClassResultManager({ currentUser }) {
         };
       });
 
-      // 3. Perform fast single-request batch upsert
       const { error } = await supabase
         .from('student_results')
         .upsert(recordsToUpsert, { onConflict: 'student_id, term' });
@@ -278,7 +283,7 @@ export default function ClassResultManager({ currentUser }) {
               {isHm ? 'Exam Results Management & Report Cards' : `${teacherInfo?.name} - Subject Grading`}
             </h1>
             <p className="text-sm text-gray-500">
-              {isHm ? 'Al-Madni Secondary School B.A.B. Matiari' : `Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
+              {isHm ? 'Al-Madni Secondary School B.A.B. Matiari' : `Showing Male Students Only | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
             </p>
           </div>
 
@@ -328,7 +333,7 @@ export default function ClassResultManager({ currentUser }) {
           <div className="text-center py-12 text-gray-500">Loading student marks...</div>
         ) : students.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100 text-gray-500">
-            No students found in {selectedClass}.
+            No male students found in {selectedClass}.
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

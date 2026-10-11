@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-export default function ClassStudentManager() {
-  const [selectedClass, setSelectedClass] = useState('Class 1');
-  const [selectedShift, setSelectedShift] = useState('All');
+export default function ClassStudentManager({ currentUser }) {
+  const isHm = currentUser === 'hm';
+
+  const [selectedClass, setSelectedClass] = useState('Class 5');
+  const [selectedShift, setSelectedShift] = useState('Evening');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -16,16 +18,19 @@ export default function ClassStudentManager() {
     gr_number: '',
     full_name: '',
     father_name: '',
-    class_name: 'Class 1',
+    class_name: 'Class 5',
     section: 'A',
-    shift: 'Morning'
+    shift: 'Evening',
+    gender: 'Male'
   });
 
-  const classes = ['Kachi', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
+  const classes = isHm 
+    ? ['Kachi', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10']
+    : ['Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
 
   useEffect(() => {
     fetchStudents();
-  }, [selectedClass, selectedShift]);
+  }, [selectedClass, selectedShift, currentUser]);
 
   async function fetchStudents() {
     setLoading(true);
@@ -42,8 +47,19 @@ export default function ClassStudentManager() {
     const { data, error } = await query;
     if (error) {
       console.error('Error fetching students:', error);
+      setStudents([]);
     } else {
-      setStudents(data || []);
+      let fetchedStudents = data || [];
+      
+      // If logged in as a teacher, strictly filter for male students only
+      if (!isHm) {
+        fetchedStudents = fetchedStudents.filter(st => {
+          const gender = (st.gender || '').trim().toLowerCase();
+          return gender === 'male' || gender === 'm';
+        });
+      }
+
+      setStudents(fetchedStudents);
     }
     setLoading(false);
   }
@@ -56,7 +72,8 @@ export default function ClassStudentManager() {
       father_name: '',
       class_name: selectedClass,
       section: 'A',
-      shift: selectedShift === 'All' ? 'Morning' : selectedShift
+      shift: selectedShift === 'All' ? 'Evening' : selectedShift,
+      gender: 'Male'
     });
     setIsModalOpen(true);
   };
@@ -69,7 +86,8 @@ export default function ClassStudentManager() {
       father_name: student.father_name || '',
       class_name: student.class_name,
       section: student.section || 'A',
-      shift: student.shift || 'Morning'
+      shift: student.shift || 'Evening',
+      gender: student.gender || 'Male'
     });
     setIsModalOpen(true);
   };
@@ -80,7 +98,6 @@ export default function ClassStudentManager() {
     setMessage('');
 
     if (editingStudent) {
-      // Update existing student
       const { error } = await supabase
         .from('students')
         .update({
@@ -88,7 +105,8 @@ export default function ClassStudentManager() {
           father_name: formData.father_name,
           class_name: formData.class_name,
           section: formData.section,
-          shift: formData.shift
+          shift: formData.shift,
+          gender: formData.gender
         })
         .eq('gr_number', editingStudent.gr_number);
 
@@ -100,7 +118,6 @@ export default function ClassStudentManager() {
         fetchStudents();
       }
     } else {
-      // Insert new student
       const { error } = await supabase
         .from('students')
         .insert([formData]);
@@ -117,6 +134,11 @@ export default function ClassStudentManager() {
   }
 
   async function handleDeleteStudent(grNumber) {
+    if (!isHm) {
+      alert('Only the Headmaster can delete student records.');
+      return;
+    }
+
     if (!window.confirm(`Are you sure you want to delete student GR #${grNumber}?`)) return;
 
     setLoading(true);
@@ -145,16 +167,22 @@ export default function ClassStudentManager() {
       {/* Header & Actions */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>
-          <h2 className="text-lg sm:text-xl font-bold text-slate-800">Class-Wise Student Management</h2>
-          <p className="text-xs sm:text-sm text-slate-500">Manage enrollment, update details, or add new students by class.</p>
+          <h2 className="text-lg sm:text-xl font-bold text-slate-800">
+            {isHm ? 'Class-Wise Student Management' : 'Class Students Directory (Male Only)'}
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500">
+            {isHm ? 'Manage enrollment, update details, or add new students by class.' : 'View enrolled male students for your classes.'}
+          </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-md shadow-indigo-100 transition-all flex items-center gap-2"
-        >
-          <span>➕</span> Add New Student
-        </button>
+        {isHm && (
+          <button
+            onClick={handleOpenAddModal}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold shadow-md shadow-indigo-100 transition-all flex items-center gap-2"
+          >
+            <span>➕</span> Add New Student
+          </button>
+        )}
       </div>
 
       {message && (
@@ -184,9 +212,9 @@ export default function ClassStudentManager() {
               onChange={e => setSelectedShift(e.target.value)}
               className="border border-slate-300 bg-white px-3 py-2 rounded-xl text-xs sm:text-sm shadow-xs focus:ring-2 focus:ring-indigo-500 font-semibold text-slate-700"
             >
-              <option value="All">All Shifts</option>
-              <option value="Morning">Morning Shift</option>
               <option value="Evening">Evening Shift</option>
+              {isHm && <option value="All">All Shifts</option>}
+              {isHm && <option value="Morning">Morning Shift</option>}
             </select>
           </div>
         </div>
@@ -211,19 +239,20 @@ export default function ClassStudentManager() {
               <th className="p-3 sm:p-4 font-semibold">GR Number</th>
               <th className="p-3 sm:p-4 font-semibold">Student Name</th>
               <th className="p-3 sm:p-4 font-semibold">Father's Name</th>
+              <th className="p-3 sm:p-4 font-semibold">Gender</th>
               <th className="p-3 sm:p-4 font-semibold">Section</th>
               <th className="p-3 sm:p-4 font-semibold">Shift</th>
-              <th className="p-3 sm:p-4 font-semibold text-right">Actions</th>
+              {isHm && <th className="p-3 sm:p-4 font-semibold text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
             {loading ? (
               <tr>
-                <td colSpan="6" className="p-8 text-center text-slate-500">Loading student records...</td>
+                <td colSpan={isHm ? 7 : 6} className="p-8 text-center text-slate-500">Loading student records...</td>
               </tr>
             ) : filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan="6" className="p-8 text-center text-slate-500">No students found in {selectedClass} ({selectedShift} Shift).</td>
+                <td colSpan={isHm ? 7 : 6} className="p-8 text-center text-slate-500">No male students found in {selectedClass}.</td>
               </tr>
             ) : (
               filteredStudents.map(student => (
@@ -231,26 +260,29 @@ export default function ClassStudentManager() {
                   <td className="p-3 sm:p-4 font-mono font-semibold text-slate-600">{student.gr_number}</td>
                   <td className="p-3 sm:p-4 font-bold text-slate-800">{student.full_name}</td>
                   <td className="p-3 sm:p-4 text-slate-600">{student.father_name || '-'}</td>
-                  <td className="p-3 sm:p-4 font-semibold text-indigo-600">{student.section || 'A'}</td>
+                  <td className="p-3 sm:p-4 font-semibold text-indigo-600">{student.gender || 'Male'}</td>
+                  <td className="p-3 sm:p-4 font-semibold text-slate-600">{student.section || 'A'}</td>
                   <td className="p-3 sm:p-4">
                     <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold ${student.shift === 'Evening' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                      {student.shift || 'Morning'}
+                      {student.shift || 'Evening'}
                     </span>
                   </td>
-                  <td className="p-3 sm:p-4 text-right space-x-2">
-                    <button
-                      onClick={() => handleOpenEditModal(student)}
-                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      onClick={() => handleDeleteStudent(student.gr_number)}
-                      className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      🗑️ Delete
-                    </button>
-                  </td>
+                  {isHm && (
+                    <td className="p-3 sm:p-4 text-right space-x-2">
+                      <button
+                        onClick={() => handleOpenEditModal(student)}
+                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteStudent(student.gr_number)}
+                        className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-semibold transition-colors"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -259,7 +291,7 @@ export default function ClassStudentManager() {
       </div>
 
       {/* Add / Edit Modal */}
-      {isModalOpen && (
+      {isModalOpen && isHm && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-lg p-6 rounded-3xl shadow-2xl border border-slate-100">
             <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
@@ -311,7 +343,7 @@ export default function ClassStudentManager() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Class</label>
                   <select
@@ -319,10 +351,24 @@ export default function ClassStudentManager() {
                     onChange={e => setFormData({ ...formData, class_name: e.target.value })}
                     className="w-full border border-slate-300 px-3 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
                   >
-                    {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                    {['Kachi', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Gender</label>
+                  <select
+                    value={formData.gender}
+                    onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                    className="w-full border border-slate-300 px-3 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-slate-600 mb-1">Section</label>
                   <select
@@ -342,8 +388,8 @@ export default function ClassStudentManager() {
                     onChange={e => setFormData({ ...formData, shift: e.target.value })}
                     className="w-full border border-slate-300 px-3 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="Morning">Morning</option>
                     <option value="Evening">Evening</option>
+                    <option value="Morning">Morning</option>
                   </select>
                 </div>
               </div>
