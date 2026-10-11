@@ -121,12 +121,14 @@ export default function ClassResultManager({ currentUser }) {
 
       if (studentError) throw studentError;
 
-      // Filter students: Teachers see only male students, HM sees all
+      // Strictly filter out any student whose gender is female
       const filteredStudents = (studentList || []).filter(st => {
         if (isHm) return true;
-        const gender = (st.gender || '').trim().toLowerCase();
-        // If gender is explicitly female, filter it out for teachers
-        if (gender === 'female' || gender === 'f') return false;
+        const gender = String(st.gender || '').trim().toLowerCase();
+        // If gender contains 'female' or 'f', exclude it for teachers
+        if (gender.includes('female') || gender === 'f') {
+          return false;
+        }
         return true;
       });
 
