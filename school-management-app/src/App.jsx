@@ -176,7 +176,6 @@ export default function App() {
   ] : [
     { id: 'portal', label: 'Teacher Portal', icon: '🏫' },
     { id: 'results', label: 'Exam Results', icon: '📝' },
-    { id: 'directory', label: 'Students Directory', icon: '📖' },
   ];
 
   return (
