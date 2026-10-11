@@ -75,8 +75,8 @@ const allClassStandardSubjects = {
   'Class 6': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
   'Class 7': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
   'Class 8': ['English', 'Islamiyat', 'Math', 'Social Studies', 'Science', 'Sindhi', 'Salees Urdu'],
-  'Class 9': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics'],
-  'Class 10': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics']
+  'Class 9': ['English', 'Islamiyat', 'Math', 'Biology', 'Chemistry', 'Sindhi', 'Physics'],
+  'Class 10': ['English', 'Pakistan Studies', 'Math', 'Biology', 'Chemistry', 'Salees Urdu', 'Physics']
 };
 
 export default function ClassResultManager({ currentUser }) {
