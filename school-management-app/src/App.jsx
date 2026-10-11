@@ -261,9 +261,9 @@ export default function App() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 min-h-[80vh]">
           {activeTab === 'entry' && isHm && <HmAttendance />}
           {activeTab === 'portal' && !isHm && <TeacherPortal teacherName={currentTeacherName} />}
-          {activeTab === 'manage_students' && isHm && <ClassStudentManager />}
-          {activeTab === 'directory' && <AllStudentsDirectory />}
           {activeTab === 'manage_students' && isHm && <ClassStudentManager currentUser={role} />}
+          {activeTab === 'directory' && <AllStudentsDirectory />}
+          {activeTab === 'results' && <ClassResultManager currentUser={role} />}
           {activeTab === 'summary' && isHm && <ClassSummary />}
           {activeTab === 'analytics' && isHm && <AttendanceAnalytics />}
         </div>
