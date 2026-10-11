@@ -121,7 +121,6 @@ export default function ClassResultManager({ currentUser }) {
 
       if (studentError) throw studentError;
 
-      // Filter students: Teachers see only Evening shift and Male students; HM sees all
       const filteredStudents = (studentList || []).filter(st => {
         if (isHm) return true;
 
@@ -278,6 +277,42 @@ export default function ClassResultManager({ currentUser }) {
     }, 300);
   };
 
+  const sendWhatsAppToHM = (student) => {
+    const m = marksData[student.gr_number] || {};
+    const total = calculateTotal(m);
+    const maxScore = standardSubjects.length * 100;
+    const percentage = ((total / maxScore) * 100).toFixed(1);
+    const grade = calculateGrade(percentage);
+    const remarks = m.remarks || 'Passed';
+
+    let subjectDetails = '';
+    standardSubjects.forEach(sub => {
+      subjectDetails += `• ${sub}: ${m[sub] || 0}/100\n`;
+    });
+
+    const message = `🏫 *AL-MADNI SECONDARY SCHOOL B.A.B. MATIARI*
+*(Evening Shift Result Submission)*
+-----------------------------------
+👤 *Student Name:* ${student.full_name}
+🔢 *GR Number:* ${student.gr_number}
+👨‍👦 *Father's Name:* ${student.father_name || '-'}
+📚 *Class:* ${student.class_name}
+📅 *Term:* ${term}
+-----------------------------------
+*Subject Breakdown:*
+${subjectDetails}-----------------------------------
+📊 *Total Obtained:* ${total} / ${maxScore}
+📈 *Percentage:* ${percentage}%
+🏆 *Grade:* ${grade}
+📝 *Remarks:* ${remarks}
+-----------------------------------
+Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
+
+    const encodedMessage = encodeURIComponent(message);
+    // HM WhatsApp Number: 03123942795 (formatted with country code +92)
+    window.open(`https://wa.me/923123942795?text=${encodedMessage}`, '_blank');
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="print:hidden">
@@ -357,7 +392,7 @@ export default function ClassResultManager({ currentUser }) {
                     <th className="p-3 text-center">Total</th>
                     <th className="p-3 text-center">Grade</th>
                     <th className="p-3">Remarks</th>
-                    <th className="p-3 text-center">Report Card</th>
+                    <th className="p-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
@@ -412,12 +447,20 @@ export default function ClassResultManager({ currentUser }) {
                             className="w-32 border rounded p-1 text-xs bg-gray-50 focus:bg-white"
                           />
                         </td>
-                        <td className="p-3 text-center">
+                        <td className="p-3 text-center space-x-1 whitespace-nowrap">
                           <button
                             onClick={() => printReportCard(st)}
-                            className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-xs font-semibold border border-indigo-200 transition whitespace-nowrap"
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded text-xs font-semibold border border-indigo-200 transition"
+                            title="Print Report Card"
                           >
                             🖨️ Print
+                          </button>
+                          <button
+                            onClick={() => sendWhatsAppToHM(st)}
+                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-xs font-semibold border border-emerald-200 transition"
+                            title="Send to HM WhatsApp"
+                          >
+                            💬 Send to HM
                           </button>
                         </td>
                       </tr>
