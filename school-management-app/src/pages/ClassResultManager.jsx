@@ -121,14 +121,16 @@ export default function ClassResultManager({ currentUser }) {
 
       if (studentError) throw studentError;
 
-      // Strictly filter out any student whose gender is female
+      // Filter students: Teachers see only Evening shift and Male students; HM sees all
       const filteredStudents = (studentList || []).filter(st => {
         if (isHm) return true;
-        const gender = String(st.gender || '').trim().toLowerCase();
-        // If gender contains 'female' or 'f', exclude it for teachers
-        if (gender.includes('female') || gender === 'f') {
-          return false;
-        }
+
+        const shift = (st.shift || '').trim().toLowerCase();
+        if (shift !== 'evening') return false;
+
+        const gender = (st.gender || '').trim().toLowerCase();
+        if (gender.includes('female') || gender === 'f') return false;
+
         return true;
       });
 
@@ -285,7 +287,7 @@ export default function ClassResultManager({ currentUser }) {
               {isHm ? 'Exam Results Management & Report Cards' : `${teacherInfo?.name} - Subject Grading`}
             </h1>
             <p className="text-sm text-gray-500">
-              {isHm ? 'Al-Madni Secondary School B.A.B. Matiari' : `Showing Male Students Only | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
+              {isHm ? 'Al-Madni Secondary School B.A.B. Matiari' : `Showing Evening Male Students Only | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
             </p>
           </div>
 
@@ -335,7 +337,7 @@ export default function ClassResultManager({ currentUser }) {
           <div className="text-center py-12 text-gray-500">Loading student marks...</div>
         ) : students.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100 text-gray-500">
-            No male students found in {selectedClass}.
+            No evening shift male students found in {selectedClass}.
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -428,7 +430,7 @@ export default function ClassResultManager({ currentUser }) {
         )}
       </div>
 
-      {/* Printable Report Card Template (Single-page optimized) */}
+      {/* Printable Report Card Template */}
       {selectedStudentForCard && (
         <div className="hidden print:block p-4 bg-white text-black font-sans max-w-2xl mx-auto border border-slate-800 rounded-lg my-0">
           <div className="text-center border-b border-slate-800 pb-2 mb-3">
