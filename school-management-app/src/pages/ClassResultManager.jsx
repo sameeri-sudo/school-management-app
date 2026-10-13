@@ -88,6 +88,7 @@ export default function ClassResultManager({ currentUser }) {
     : Object.keys(teacherInfo?.assignments || {});
 
   const [selectedClass, setSelectedClass] = useState(allowedClasses[0] || 'Class 5');
+  const [shiftFilter, setShiftFilter] = useState('Evening');
   const [term, setTerm] = useState('Mid-Term 2026');
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
@@ -107,7 +108,7 @@ export default function ClassResultManager({ currentUser }) {
 
   useEffect(() => {
     fetchClassData();
-  }, [selectedClass, term]);
+  }, [selectedClass, term, shiftFilter]);
 
   const fetchClassData = async () => {
     setLoading(true);
@@ -122,13 +123,15 @@ export default function ClassResultManager({ currentUser }) {
       if (studentError) throw studentError;
 
       const filteredStudents = (studentList || []).filter(st => {
-        if (isHm) return true;
+        const studentShift = (st.shift || '').trim().toLowerCase();
+        const targetShift = isHm ? shiftFilter.toLowerCase() : 'evening';
 
-        const shift = (st.shift || '').trim().toLowerCase();
-        if (shift !== 'evening') return false;
+        if (studentShift !== targetShift) return false;
 
-        const gender = (st.gender || '').trim().toLowerCase();
-        if (gender.includes('female') || gender === 'f') return false;
+        if (!isHm) {
+          const gender = (st.gender || '').trim().toLowerCase();
+          if (gender.includes('female') || gender === 'f') return false;
+        }
 
         return true;
       });
@@ -292,7 +295,7 @@ export default function ClassResultManager({ currentUser }) {
         st.gr_number,
         `"${st.full_name || ''}"`,
         `"${st.father_name || ''}"`,
-        st.shift || 'Evening',
+        st.shift || shiftFilter,
         st.gender || 'Male',
         ...standardSubjects.map(sub => m[sub] ?? 0),
         total,
@@ -307,7 +310,7 @@ export default function ClassResultManager({ currentUser }) {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Al_Madni_${selectedClass}_${term.replace(/\s+/g, '_')}_Report.csv`);
+    link.setAttribute("download", `Al_Madni_${selectedClass}_${shiftFilter}_${term.replace(/\s+/g, '_')}_Report.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -334,12 +337,12 @@ export default function ClassResultManager({ currentUser }) {
     });
 
     const message = `🏫 *AL-MADNI SECONDARY SCHOOL B.A.B. MATIARI*
-*(Evening Shift Result Submission)*
+*(Result Submission)*
 -----------------------------------
 👤 *Student Name:* ${student.full_name}
 🔢 *GR Number:* ${student.gr_number}
 👨‍👦 *Father's Name:* ${student.father_name || '-'}
-📚 *Class:* ${student.class_name}
+📚 *Class:* ${student.class_name} (${student.shift || 'Evening Shift'})
 📅 *Term:* ${term}
 -----------------------------------
 *Subject Breakdown:*
@@ -364,11 +367,25 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
               {isHm ? 'Exam Results Management & Report Cards' : `${teacherInfo?.name} - Subject Grading`}
             </h1>
             <p className="text-sm text-gray-500">
-              {isHm ? 'Al-Madni Secondary School B.A.B. Matiari' : `Showing Evening Male Students Only | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
+              {isHm ? `Al-Madni Secondary School B.A.B. Matiari (${shiftFilter} Shift)` : `Showing Evening Male Students Only | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3 items-center">
+            {isHm && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Select Shift</label>
+                <select
+                  value={shiftFilter}
+                  onChange={(e) => setShiftFilter(e.target.value)}
+                  className="px-3 py-2 border rounded-lg text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-indigo-700"
+                >
+                  <option value="Evening">Evening Shift</option>
+                  <option value="Morning">Morning Shift</option>
+                </select>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Select Term</label>
               <select
@@ -422,7 +439,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
           <div className="text-center py-12 text-gray-500">Loading student marks...</div>
         ) : students.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100 text-gray-500">
-            No evening shift male students found in {selectedClass}.
+            No students found in {selectedClass} for {shiftFilter} shift.
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -528,7 +545,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
         <div className="hidden print:block p-4 bg-white text-black font-sans max-w-2xl mx-auto border border-slate-800 rounded-lg my-0">
           <div className="text-center border-b border-slate-800 pb-2 mb-3">
             <h1 className="text-xl font-bold uppercase tracking-wider">Al-Madni Secondary School B.A.B. Matiari</h1>
-            <p className="text-xs font-medium text-slate-600">Official Student Academic Report Card (Evening Shift)</p>
+            <p className="text-xs font-medium text-slate-600">Official Student Academic Report Card ({selectedStudentForCard.shift || shiftFilter} Shift)</p>
             <p className="text-[11px] text-slate-500 mt-0.5">Term: {term}</p>
           </div>
 
