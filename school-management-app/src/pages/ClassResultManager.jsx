@@ -92,6 +92,7 @@ export default function ClassResultManager({ currentUser }) {
   const [term, setTerm] = useState('Mid-Term 2026');
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
+  const [maxMarksConfig, setMaxMarksConfig] = useState({}); // Custom max marks per subject
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -107,6 +108,12 @@ export default function ClassResultManager({ currentUser }) {
   }, [currentUser]);
 
   useEffect(() => {
+    // Initialize default max marks to 100 for current class subjects
+    const initialMax = {};
+    allClassStandardSubjects[selectedClass]?.forEach(sub => {
+      initialMax[sub] = 100;
+    });
+    setMaxMarksConfig(initialMax);
     fetchClassData();
   }, [selectedClass, term, shiftFilter]);
 
@@ -145,12 +152,18 @@ export default function ClassResultManager({ currentUser }) {
       if (resultError) throw resultError;
 
       const marksMap = {};
+      const loadedMaxMarks = { ...maxMarksConfig };
+
       resultList?.forEach((res) => {
         const savedMarks = res.marks || {};
         marksMap[res.student_id] = {
           ...savedMarks,
           remarks: res.remarks || 'Passed',
         };
+        // If max marks were saved in results, load them
+        if (res.max_marks_config) {
+          Object.assign(loadedMaxMarks, res.max_marks_config);
+        }
       });
 
       filteredStudents.forEach((st) => {
@@ -168,6 +181,7 @@ export default function ClassResultManager({ currentUser }) {
         }
       });
 
+      setMaxMarksConfig(loadedMaxMarks);
       setStudents(filteredStudents);
       setMarksData(marksMap);
     } catch (err) {
@@ -178,13 +192,22 @@ export default function ClassResultManager({ currentUser }) {
   };
 
   const handleMarkChange = (grNumber, subject, value) => {
-    const numValue = Math.max(0, Math.min(100, Number(value) || 0));
+    const maxAllowed = Number(maxMarksConfig[subject]) || 100;
+    const numValue = Math.max(0, Math.min(maxAllowed, Number(value) || 0));
     setMarksData((prev) => ({
       ...prev,
       [grNumber]: {
         ...prev[grNumber],
         [subject]: numValue,
       },
+    }));
+  };
+
+  const handleMaxMarkChange = (subject, value) => {
+    const val = Math.max(1, Number(value) || 100);
+    setMaxMarksConfig(prev => ({
+      ...prev,
+      [subject]: val
     }));
   };
 
@@ -198,8 +221,12 @@ export default function ClassResultManager({ currentUser }) {
     }));
   };
 
-  const calculateTotal = (studentMarks) => {
+  const calculateTotalObtained = (studentMarks) => {
     return standardSubjects.reduce((sum, sub) => sum + (Number(studentMarks?.[sub]) || 0), 0);
+  };
+
+  const calculateTotalMaxScore = () => {
+    return standardSubjects.reduce((sum, sub) => sum + (Number(maxMarksConfig[sub]) || 100), 0);
   };
 
   const calculateGrade = (percentage) => {
@@ -226,7 +253,8 @@ export default function ClassResultManager({ currentUser }) {
         existingMap[rec.student_id] = rec;
       });
 
-      const maxScore = standardSubjects.length * 100;
+      const totalMaxScore = calculateTotalMaxScore();
+
       const recordsToUpsert = students.map((st) => {
         const gr = st.gr_number;
         const m = marksData[gr] || {};
@@ -242,7 +270,7 @@ export default function ClassResultManager({ currentUser }) {
           totalObtained += Number(mergedMarks[sub]) || 0;
         });
 
-        const percentage = (totalObtained / maxScore) * 100;
+        const percentage = totalMaxScore > 0 ? (totalObtained / totalMaxScore) * 100 : 0;
         const grade = calculateGrade(percentage);
 
         return {
@@ -250,8 +278,9 @@ export default function ClassResultManager({ currentUser }) {
           class_name: selectedClass,
           term: term,
           marks: mergedMarks,
+          max_marks_config: maxMarksConfig,
           total_obtained: totalObtained,
-          total_max: maxScore,
+          total_max: totalMaxScore,
           percentage: Number(percentage.toFixed(2)),
           grade: grade,
           remarks: m.remarks || existing?.remarks || 'Passed'
@@ -279,15 +308,15 @@ export default function ClassResultManager({ currentUser }) {
       return;
     }
 
+    const totalMaxScore = calculateTotalMaxScore();
     let csvContent = "data:text/csv;charset=utf-8,";
-    const headers = ["GR Number", "Student Name", "Father's Name", "Shift", "Gender", ...standardSubjects, "Total Obtained", "Max Marks", "Percentage", "Grade", "Remarks"];
+    const headers = ["GR Number", "Student Name", "Father's Name", "Shift", "Gender", ...standardSubjects.map(s => `${s} (Max ${maxMarksConfig[s] || 100})`), "Total Obtained", "Max Marks", "Percentage", "Grade", "Remarks"];
     csvContent += headers.join(",") + "\n";
 
     students.forEach((st) => {
       const m = marksData[st.gr_number] || {};
-      const total = calculateTotal(m);
-      const maxScore = standardSubjects.length * 100;
-      const percentage = ((total / maxScore) * 100).toFixed(2);
+      const total = calculateTotalObtained(m);
+      const percentage = totalMaxScore > 0 ? ((total / totalMaxScore) * 100).toFixed(2) : 0;
       const grade = calculateGrade(percentage);
       const remarks = m.remarks || 'Passed';
 
@@ -299,7 +328,7 @@ export default function ClassResultManager({ currentUser }) {
         st.gender || 'Male',
         ...standardSubjects.map(sub => m[sub] ?? 0),
         total,
-        maxScore,
+        totalMaxScore,
         percentage + '%',
         grade,
         `"${remarks}"`
@@ -325,15 +354,15 @@ export default function ClassResultManager({ currentUser }) {
 
   const sendWhatsAppToHM = (student) => {
     const m = marksData[student.gr_number] || {};
-    const total = calculateTotal(m);
-    const maxScore = standardSubjects.length * 100;
-    const percentage = ((total / maxScore) * 100).toFixed(1);
+    const total = calculateTotalObtained(m);
+    const totalMaxScore = calculateTotalMaxScore();
+    const percentage = totalMaxScore > 0 ? ((total / totalMaxScore) * 100).toFixed(1) : 0;
     const grade = calculateGrade(percentage);
     const remarks = m.remarks || 'Passed';
 
     let subjectDetails = '';
     standardSubjects.forEach(sub => {
-      subjectDetails += `• ${sub}: ${m[sub] || 0}/100\n`;
+      subjectDetails += `• ${sub}: ${m[sub] || 0}/${maxMarksConfig[sub] || 100}\n`;
     });
 
     const message = `🏫 *AL-MADNI SECONDARY SCHOOL B.A.B. MATIARI*
@@ -347,7 +376,7 @@ export default function ClassResultManager({ currentUser }) {
 -----------------------------------
 *Subject Breakdown:*
 ${subjectDetails}-----------------------------------
-📊 *Total Obtained:* ${total} / ${maxScore}
+📊 *Total Obtained:* ${total} / ${totalMaxScore}
 📈 *Percentage:* ${percentage}%
 🏆 *Grade:* ${grade}
 📝 *Remarks:* ${remarks}
@@ -358,6 +387,9 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
     window.open(`https://wa.me/923123942795?text=${encodedMessage}`, '_blank');
   };
 
+  const totalMaxScore = calculateTotalMaxScore();
+  const studentsWithMarksCount = students.filter(st => calculateTotalObtained(marksData[st.gr_number]) > 0).length;
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="print:hidden">
@@ -367,7 +399,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
               {isHm ? 'Exam Results Management & Report Cards' : `${teacherInfo?.name} - Subject Grading`}
             </h1>
             <p className="text-sm text-gray-500">
-              {isHm ? `Al-Madni Secondary School B.A.B. Matiari (${shiftFilter} Shift)` : `Showing Evening Male Students Only | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
+              {isHm ? `Al-Madni Secondary School B.A.B. Matiari (${shiftFilter} Shift) | Grand Total Max: ${totalMaxScore} | Students Graded: ${studentsWithMarksCount}/${students.length}` : `Showing Evening Male Students Only | Grand Total Max: ${totalMaxScore} | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
             </p>
           </div>
 
@@ -419,13 +451,15 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
               {saving ? 'Saving...' : 'Save Marks'}
             </button>
 
-            <button
-              onClick={exportClassToExcel}
-              disabled={students.length === 0}
-              className="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm shadow transition disabled:opacity-50 flex items-center gap-1.5"
-            >
-              <span>📊</span> Export Class Excel
-            </button>
+            {isHm && (
+              <button
+                onClick={exportClassToExcel}
+                disabled={students.length === 0}
+                className="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm shadow transition disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <span>📊</span> Export Class Excel
+              </button>
+            )}
           </div>
         </div>
 
@@ -452,11 +486,25 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                       const isEditable = isHm || activeEditableSubjects.includes(sub);
                       return (
                         <th key={sub} className={`p-3 text-center ${isEditable ? 'text-indigo-700 font-bold bg-indigo-50/30' : 'text-gray-400'}`}>
-                          {sub} (100)
+                          <div>{sub}</div>
+                          <div className="text-[10px] font-normal text-gray-500 mt-0.5">
+                            Max: {isHm ? (
+                              <input
+                                type="number"
+                                min="1"
+                                max="500"
+                                value={maxMarksConfig[sub] ?? 100}
+                                onChange={(e) => handleMaxMarkChange(sub, e.target.value)}
+                                className="w-12 text-center border rounded bg-white text-black font-semibold ml-1 py-0.5 text-xs"
+                              />
+                            ) : (
+                              <span>{maxMarksConfig[sub] ?? 100}</span>
+                            )}
+                          </div>
                         </th>
                       );
                     })}
-                    <th className="p-3 text-center">Total</th>
+                    <th className="p-3 text-center">Total ({totalMaxScore})</th>
                     <th className="p-3 text-center">Grade</th>
                     <th className="p-3">Remarks</th>
                     <th className="p-3 text-center">Actions</th>
@@ -465,9 +513,8 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                 <tbody className="divide-y divide-gray-100 text-sm">
                   {students.map((st) => {
                     const m = marksData[st.gr_number] || {};
-                    const total = calculateTotal(m);
-                    const maxScore = standardSubjects.length * 100;
-                    const percentage = (total / maxScore) * 100;
+                    const total = calculateTotalObtained(m);
+                    const percentage = totalMaxScore > 0 ? (total / totalMaxScore) * 100 : 0;
                     const grade = calculateGrade(percentage);
 
                     return (
@@ -478,16 +525,18 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                         </td>
                         {standardSubjects.map((sub) => {
                           const isEditable = isHm || activeEditableSubjects.includes(sub);
+                          const subjectMax = maxMarksConfig[sub] ?? 100;
                           return (
                             <td key={sub} className="p-3 text-center">
                               {isEditable ? (
                                 <input
                                   type="number"
                                   min="0"
-                                  max="100"
+                                  max={subjectMax}
                                   value={m[sub] ?? 0}
                                   onChange={(e) => handleMarkChange(st.gr_number, sub, e.target.value)}
                                   className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white font-semibold text-indigo-700"
+                                  title={`Max: ${subjectMax}`}
                                 />
                               ) : (
                                 <span className="text-gray-500 font-medium">{m[sub] ?? 0}</span>
@@ -495,7 +544,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                             </td>
                           );
                         })}
-                        <td className="p-3 text-center font-bold text-gray-700">{total}</td>
+                        <td className="p-3 text-center font-bold text-gray-700">{total} / {totalMaxScore}</td>
                         <td className="p-3 text-center">
                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${
                             grade === 'A+' || grade === 'A' ? 'bg-green-100 text-green-800' :
@@ -565,17 +614,20 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
               </tr>
             </thead>
             <tbody>
-              {standardSubjects.map((sub) => (
-                <tr key={sub}>
-                  <td className="border border-slate-800 p-1.5">{sub}</td>
-                  <td className="border border-slate-800 p-1.5 text-center">100</td>
-                  <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.[sub] || 0}</td>
-                </tr>
-              ))}
+              {standardSubjects.map((sub) => {
+                const subjectMax = maxMarksConfig[sub] ?? 100;
+                return (
+                  <tr key={sub}>
+                    <td className="border border-slate-800 p-1.5">{sub}</td>
+                    <td className="border border-slate-800 p-1.5 text-center">{subjectMax}</td>
+                    <td className="border border-slate-800 p-1.5 text-center">{marksData[selectedStudentForCard.gr_number]?.[sub] || 0}</td>
+                  </tr>
+                );
+              })}
               <tr className="font-bold bg-slate-100">
                 <td className="border border-slate-800 p-1.5">Total</td>
-                <td className="border border-slate-800 p-1.5 text-center">{standardSubjects.length * 100}</td>
-                <td className="border border-slate-800 p-1.5 text-center">{calculateTotal(marksData[selectedStudentForCard.gr_number])}</td>
+                <td className="border border-slate-800 p-1.5 text-center">{totalMaxScore}</td>
+                <td className="border border-slate-800 p-1.5 text-center">{calculateTotalObtained(marksData[selectedStudentForCard.gr_number])}</td>
               </tr>
             </tbody>
           </table>
@@ -584,13 +636,13 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
             <div className="border border-slate-800 p-2 rounded">
               <div>Percentage</div>
               <div className="text-sm text-blue-700 mt-0.5">
-                {((calculateTotal(marksData[selectedStudentForCard.gr_number]) / (standardSubjects.length * 100)) * 100).toFixed(1)}%
+                {totalMaxScore > 0 ? ((calculateTotalObtained(marksData[selectedStudentForCard.gr_number]) / totalMaxScore) * 100).toFixed(1) : 0}%
               </div>
             </div>
             <div className="border border-slate-800 p-2 rounded">
               <div>Grade</div>
               <div className="text-sm text-green-700 mt-0.5">
-                {calculateGrade((calculateTotal(marksData[selectedStudentForCard.gr_number]) / (standardSubjects.length * 100)) * 100)}
+                {calculateGrade(totalMaxScore > 0 ? (calculateTotalObtained(marksData[selectedStudentForCard.gr_number]) / totalMaxScore) * 100 : 0)}
               </div>
             </div>
             <div className="border border-slate-800 p-2 rounded">
@@ -604,7 +656,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
           <div className="flex justify-between mt-8 pt-4 border-t border-slate-400 text-xs font-semibold">
             <div className="text-center">
               <div className="mb-4">______________________</div>
-              <div>Class Teacher Signature</div>
+              <div>Class Teacher / Subject Teacher Signature</div>
             </div>
             <div className="text-center">
               <div className="mb-4">______________________</div>
