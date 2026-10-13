@@ -190,6 +190,16 @@ export default function ClassResultManager({ currentUser }) {
   };
 
   const handleMarkChange = (grNumber, subject, value) => {
+    if (value === '') {
+      setMarksData((prev) => ({
+        ...prev,
+        [grNumber]: {
+          ...prev[grNumber],
+          [subject]: '',
+        },
+      }));
+      return;
+    }
     const maxAllowed = Number(maxMarksConfig[subject]) || 100;
     const numValue = Math.max(0, Math.min(maxAllowed, Number(value) || 0));
     setMarksData((prev) => ({
@@ -202,6 +212,10 @@ export default function ClassResultManager({ currentUser }) {
   };
 
   const handleMaxMarkChange = (subject, value) => {
+    if (value === '') {
+      setMaxMarksConfig(prev => ({ ...prev, [subject]: '' }));
+      return;
+    }
     const val = Math.max(1, Number(value) || 100);
     setMaxMarksConfig(prev => ({
       ...prev,
@@ -260,7 +274,7 @@ export default function ClassResultManager({ currentUser }) {
 
         const mergedMarks = existing?.marks ? { ...existing.marks } : {};
         activeEditableSubjects.forEach(sub => {
-          mergedMarks[sub] = m[sub] || 0;
+          mergedMarks[sub] = m[sub] !== '' && m[sub] !== undefined ? Number(m[sub]) : 0;
         });
 
         let totalObtained = 0;
@@ -461,6 +475,33 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
           </div>
         </div>
 
+        {/* Dedicated Easy Subject Max Marks Setup Panel */}
+        <div className="mb-6 bg-slate-50 border border-slate-200 p-4 rounded-xl">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
+            ⚙️ Set Subject Total/Max Marks (Click any box to adjust exam total):
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            {standardSubjects.map((sub) => {
+              const isEditable = isHm || activeEditableSubjects.includes(sub);
+              return (
+                <div key={sub} className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border ${isEditable ? 'border-indigo-300 shadow-sm' : 'border-slate-200 opacity-75'}`}>
+                  <span className={`text-xs font-semibold ${isEditable ? 'text-indigo-900' : 'text-slate-500'}`}>{sub}:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="500"
+                    disabled={!isEditable}
+                    value={maxMarksConfig[sub] ?? 100}
+                    onChange={(e) => handleMaxMarkChange(sub, e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    className="w-14 text-center border border-slate-300 rounded px-1.5 py-0.5 text-xs font-bold text-blue-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {successMsg && (
           <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm font-medium">
             {successMsg}
@@ -482,23 +523,11 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                     <th className="p-3">GR # & Name</th>
                     {standardSubjects.map((sub) => {
                       const isEditable = isHm || activeEditableSubjects.includes(sub);
+                      const subMax = maxMarksConfig[sub] ?? 100;
                       return (
                         <th key={sub} className={`p-3 text-center ${isEditable ? 'text-indigo-700 font-bold bg-indigo-50/30' : 'text-gray-400'}`}>
                           <div>{sub}</div>
-                          <div className="text-[10px] font-normal text-gray-500 mt-0.5">
-                            Max: {isEditable ? (
-                              <input
-                                type="number"
-                                min="1"
-                                max="500"
-                                value={maxMarksConfig[sub] ?? 100}
-                                onChange={(e) => handleMaxMarkChange(sub, e.target.value)}
-                                className="w-12 text-center border rounded bg-white text-black font-semibold ml-1 py-0.5 text-xs"
-                              />
-                            ) : (
-                              <span>{maxMarksConfig[sub] ?? 100}</span>
-                            )}
-                          </div>
+                          <div className="text-[10px] font-semibold text-slate-500 mt-0.5">Out of {subMax}</div>
                         </th>
                       );
                     })}
@@ -531,9 +560,11 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                                   type="number"
                                   min="0"
                                   max={subjectMax}
-                                  value={m[sub] ?? 0}
+                                  value={m[sub] ?? ''}
                                   onChange={(e) => handleMarkChange(st.gr_number, sub, e.target.value)}
-                                  className="w-16 text-center border rounded p-1 text-sm bg-gray-50 focus:bg-white font-semibold text-indigo-700"
+                                  onFocus={(e) => e.target.select()}
+                                  placeholder="0"
+                                  className="w-16 text-center border border-slate-300 rounded p-1 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-indigo-700 shadow-inner"
                                   title={`Max: ${subjectMax}`}
                                 />
                               ) : (
@@ -558,7 +589,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                             value={m.remarks ?? 'Passed'}
                             disabled={!isHm && activeEditableSubjects.length === 0}
                             onChange={(e) => handleRemarkChange(st.gr_number, e.target.value)}
-                            className="w-32 border rounded p-1 text-xs bg-gray-50 focus:bg-white"
+                            className="w-32 border border-slate-300 rounded p-1 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </td>
                         <td className="p-3 text-center space-x-1 whitespace-nowrap">
