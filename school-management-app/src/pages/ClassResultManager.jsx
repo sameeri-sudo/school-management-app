@@ -157,10 +157,11 @@ export default function ClassResultManager({ currentUser }) {
         const savedMarks = res.marks || {};
         marksMap[res.student_id] = {
           ...savedMarks,
-          remarks: res.remarks || 'Passed',
+          remarks: savedMarks.remarks || res.remarks || 'Passed',
         };
-        if (res.max_marks_config) {
-          Object.assign(loadedMaxMarks, res.max_marks_config);
+        // Extract max marks config if stored inside marks JSON
+        if (savedMarks._maxMarksConfig) {
+          Object.assign(loadedMaxMarks, savedMarks._maxMarksConfig);
         }
       });
 
@@ -277,6 +278,9 @@ export default function ClassResultManager({ currentUser }) {
           mergedMarks[sub] = m[sub] !== '' && m[sub] !== undefined ? Number(m[sub]) : 0;
         });
 
+        // Embed max marks config inside the JSON marks object to avoid missing column errors
+        mergedMarks._maxMarksConfig = maxMarksConfig;
+
         let totalObtained = 0;
         standardSubjects.forEach(sub => {
           totalObtained += Number(mergedMarks[sub]) || 0;
@@ -290,7 +294,6 @@ export default function ClassResultManager({ currentUser }) {
           class_name: selectedClass,
           term: term,
           marks: mergedMarks,
-          max_marks_config: maxMarksConfig,
           total_obtained: totalObtained,
           total_max: totalMaxScore,
           percentage: Number(percentage.toFixed(2)),
