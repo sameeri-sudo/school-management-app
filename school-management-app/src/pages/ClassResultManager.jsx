@@ -92,7 +92,7 @@ export default function ClassResultManager({ currentUser }) {
   const [term, setTerm] = useState('Mid-Term 2026');
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
-  const [maxMarksConfig, setMaxMarksConfig] = useState({}); // Custom max marks per subject
+  const [maxMarksConfig, setMaxMarksConfig] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -108,7 +108,6 @@ export default function ClassResultManager({ currentUser }) {
   }, [currentUser]);
 
   useEffect(() => {
-    // Initialize default max marks to 100 for current class subjects
     const initialMax = {};
     allClassStandardSubjects[selectedClass]?.forEach(sub => {
       initialMax[sub] = 100;
@@ -160,7 +159,6 @@ export default function ClassResultManager({ currentUser }) {
           ...savedMarks,
           remarks: res.remarks || 'Passed',
         };
-        // If max marks were saved in results, load them
         if (res.max_marks_config) {
           Object.assign(loadedMaxMarks, res.max_marks_config);
         }
@@ -488,7 +486,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                         <th key={sub} className={`p-3 text-center ${isEditable ? 'text-indigo-700 font-bold bg-indigo-50/30' : 'text-gray-400'}`}>
                           <div>{sub}</div>
                           <div className="text-[10px] font-normal text-gray-500 mt-0.5">
-                            Max: {isHm ? (
+                            Max: {isEditable ? (
                               <input
                                 type="number"
                                 min="1"
