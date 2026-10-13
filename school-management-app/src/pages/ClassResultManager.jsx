@@ -270,6 +270,49 @@ export default function ClassResultManager({ currentUser }) {
     }
   };
 
+  const exportClassToExcel = () => {
+    if (students.length === 0) {
+      alert('No student data available to export.');
+      return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    const headers = ["GR Number", "Student Name", "Father's Name", "Shift", "Gender", ...standardSubjects, "Total Obtained", "Max Marks", "Percentage", "Grade", "Remarks"];
+    csvContent += headers.join(",") + "\n";
+
+    students.forEach((st) => {
+      const m = marksData[st.gr_number] || {};
+      const total = calculateTotal(m);
+      const maxScore = standardSubjects.length * 100;
+      const percentage = ((total / maxScore) * 100).toFixed(2);
+      const grade = calculateGrade(percentage);
+      const remarks = m.remarks || 'Passed';
+
+      const row = [
+        st.gr_number,
+        `"${st.full_name || ''}"`,
+        `"${st.father_name || ''}"`,
+        st.shift || 'Evening',
+        st.gender || 'Male',
+        ...standardSubjects.map(sub => m[sub] ?? 0),
+        total,
+        maxScore,
+        percentage + '%',
+        grade,
+        `"${remarks}"`
+      ];
+      csvContent += row.join(",") + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Al_Madni_${selectedClass}_${term.replace(/\s+/g, '_')}_Report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const printReportCard = (student) => {
     setSelectedStudentForCard(student);
     setTimeout(() => {
@@ -309,7 +352,6 @@ ${subjectDetails}-----------------------------------
 Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
 
     const encodedMessage = encodeURIComponent(message);
-    // HM WhatsApp Number: 03123942795 (formatted with country code +92)
     window.open(`https://wa.me/923123942795?text=${encodedMessage}`, '_blank');
   };
 
@@ -358,6 +400,14 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
               className="mt-5 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm shadow transition disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save Marks'}
+            </button>
+
+            <button
+              onClick={exportClassToExcel}
+              disabled={students.length === 0}
+              className="mt-5 px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-sm shadow transition disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <span>📊</span> Export Class Excel
             </button>
           </div>
         </div>
