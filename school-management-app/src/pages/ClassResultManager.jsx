@@ -159,7 +159,6 @@ export default function ClassResultManager({ currentUser }) {
           ...savedMarks,
           remarks: savedMarks.remarks || res.remarks || 'Passed',
         };
-        // Extract max marks config if stored inside marks JSON
         if (savedMarks._maxMarksConfig) {
           Object.assign(loadedMaxMarks, savedMarks._maxMarksConfig);
         }
@@ -278,7 +277,6 @@ export default function ClassResultManager({ currentUser }) {
           mergedMarks[sub] = m[sub] !== '' && m[sub] !== undefined ? Number(m[sub]) : 0;
         });
 
-        // Embed max marks config inside the JSON marks object to avoid missing column errors
         mergedMarks._maxMarksConfig = maxMarksConfig;
 
         let totalObtained = 0;
@@ -294,6 +292,7 @@ export default function ClassResultManager({ currentUser }) {
           class_name: selectedClass,
           term: term,
           marks: mergedMarks,
+          max_marks_config: maxMarksConfig,
           total_obtained: totalObtained,
           total_max: totalMaxScore,
           percentage: Number(percentage.toFixed(2)),
@@ -523,7 +522,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 text-gray-700 text-xs uppercase tracking-wider border-b">
-                    <th className="p-3">GR # & Name</th>
+                    <th className="p-3">Student & Photo</th>
                     {standardSubjects.map((sub) => {
                       const isEditable = isHm || activeEditableSubjects.includes(sub);
                       const subMax = maxMarksConfig[sub] ?? 100;
@@ -549,9 +548,20 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
 
                     return (
                       <tr key={st.gr_number} className="hover:bg-gray-50 transition">
-                        <td className="p-3 font-medium text-gray-800 whitespace-nowrap">
-                          <div>{st.full_name}</div>
-                          <div className="text-xs text-gray-400">GR: {st.gr_number} | S/o: {st.father_name}</div>
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border border-slate-300 flex-shrink-0 flex items-center justify-center font-bold text-slate-600 text-xs">
+                              {st.photo_url ? (
+                                <img src={st.photo_url} alt={st.full_name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{st.full_name?.charAt(0) || 'S'}</span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-800">{st.full_name}</div>
+                              <div className="text-xs text-gray-400">GR: {st.gr_number} | S/o: {st.father_name}</div>
+                            </div>
+                          </div>
                         </td>
                         {standardSubjects.map((sub) => {
                           const isEditable = isHm || activeEditableSubjects.includes(sub);
@@ -621,13 +631,20 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
         )}
       </div>
 
-      {/* Printable Report Card Template */}
+      {/* Printable Report Card Template with Student Photo */}
       {selectedStudentForCard && (
         <div className="hidden print:block p-4 bg-white text-black font-sans max-w-2xl mx-auto border border-slate-800 rounded-lg my-0">
-          <div className="text-center border-b border-slate-800 pb-2 mb-3">
-            <h1 className="text-xl font-bold uppercase tracking-wider">Al-Madni Secondary School B.A.B. Matiari</h1>
-            <p className="text-xs font-medium text-slate-600">Official Student Academic Report Card ({selectedStudentForCard.shift || shiftFilter} Shift)</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Term: {term}</p>
+          <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3">
+            <div className="text-center flex-grow">
+              <h1 className="text-xl font-bold uppercase tracking-wider">Al-Madni Secondary School B.A.B. Matiari</h1>
+              <p className="text-xs font-medium text-slate-600">Official Student Academic Report Card ({selectedStudentForCard.shift || shiftFilter} Shift)</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Term: {term}</p>
+            </div>
+            {selectedStudentForCard.photo_url && (
+              <div className="w-16 h-20 border border-slate-800 overflow-hidden flex-shrink-0 ml-2 rounded">
+                <img src={selectedStudentForCard.photo_url} alt="Student" className="w-full h-full object-cover" />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-3 text-xs bg-slate-50 p-2.5 rounded border border-slate-200">
