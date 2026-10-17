@@ -21,8 +21,14 @@ export default function ClassStudentManager({ currentUser }) {
     class_name: 'Class 5',
     section: 'A',
     shift: 'Evening',
-    gender: 'Male'
+    gender: 'Male',
+    photo_url: '',
+    b_form_url: '',
+    other_docs_url: ''
   });
+
+  // Modal state for viewing confidential student docs (HM only)
+  const [viewingDocsStudent, setViewingDocsStudent] = useState(null);
 
   const classes = isHm 
     ? ['Kachi', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10']
@@ -73,7 +79,10 @@ export default function ClassStudentManager({ currentUser }) {
       class_name: selectedClass,
       section: 'A',
       shift: selectedShift === 'All' ? 'Evening' : selectedShift,
-      gender: 'Male'
+      gender: 'Male',
+      photo_url: '',
+      b_form_url: '',
+      other_docs_url: ''
     });
     setIsModalOpen(true);
   };
@@ -87,7 +96,10 @@ export default function ClassStudentManager({ currentUser }) {
       class_name: student.class_name,
       section: student.section || 'A',
       shift: student.shift || 'Evening',
-      gender: student.gender || 'Male'
+      gender: student.gender || 'Male',
+      photo_url: student.photo_url || '',
+      b_form_url: student.b_form_url || '',
+      other_docs_url: student.other_docs_url || ''
     });
     setIsModalOpen(true);
   };
@@ -97,17 +109,22 @@ export default function ClassStudentManager({ currentUser }) {
     setLoading(true);
     setMessage('');
 
+    const payload = {
+      full_name: formData.full_name,
+      father_name: formData.father_name,
+      class_name: formData.class_name,
+      section: formData.section,
+      shift: formData.shift,
+      gender: formData.gender,
+      photo_url: formData.photo_url,
+      b_form_url: formData.b_form_url,
+      other_docs_url: formData.other_docs_url
+    };
+
     if (editingStudent) {
       const { error } = await supabase
         .from('students')
-        .update({
-          full_name: formData.full_name,
-          father_name: formData.father_name,
-          class_name: formData.class_name,
-          section: formData.section,
-          shift: formData.shift,
-          gender: formData.gender
-        })
+        .update(payload)
         .eq('gr_number', editingStudent.gr_number);
 
       if (error) {
@@ -118,9 +135,10 @@ export default function ClassStudentManager({ currentUser }) {
         fetchStudents();
       }
     } else {
+      payload.gr_number = formData.gr_number;
       const { error } = await supabase
         .from('students')
-        .insert([formData]);
+        .insert([payload]);
 
       if (error) {
         setMessage('❌ Error adding student: ' + error.message);
@@ -168,10 +186,10 @@ export default function ClassStudentManager({ currentUser }) {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-800">
-            {isHm ? 'Class-Wise Student Management' : 'Class Students Directory (Male Only)'}
+            {isHm ? 'Class-Wise Student Management & Records' : 'Class Students Directory (Male Only)'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            {isHm ? 'Manage enrollment, update details, or add new students by class.' : 'View enrolled male students for your classes.'}
+            {isHm ? 'Manage enrollment, student photos, B-Forms, and confidential documents.' : 'View enrolled male students and profile photos for your classes.'}
           </p>
         </div>
 
@@ -233,30 +251,41 @@ export default function ClassStudentManager({ currentUser }) {
 
       {/* Student Table */}
       <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-xs bg-white mb-6">
-        <table className="w-full text-left border-collapse min-w-[700px]">
+        <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
             <tr className="bg-slate-50 text-slate-700 uppercase text-xs tracking-wider border-b border-slate-200">
+              <th className="p-3 sm:p-4 font-semibold">Photo</th>
               <th className="p-3 sm:p-4 font-semibold">GR Number</th>
               <th className="p-3 sm:p-4 font-semibold">Student Name</th>
               <th className="p-3 sm:p-4 font-semibold">Father's Name</th>
               <th className="p-3 sm:p-4 font-semibold">Gender</th>
               <th className="p-3 sm:p-4 font-semibold">Section</th>
               <th className="p-3 sm:p-4 font-semibold">Shift</th>
-              {isHm && <th className="p-3 sm:p-4 font-semibold text-right">Actions</th>}
+              {isHm && <th className="p-3 sm:p-4 font-semibold">Documents</th>}
+              <th className="p-3 sm:p-4 font-semibold text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
             {loading ? (
               <tr>
-                <td colSpan={isHm ? 7 : 6} className="p-8 text-center text-slate-500">Loading student records...</td>
+                <td colSpan={isHm ? 9 : 8} className="p-8 text-center text-slate-500">Loading student records...</td>
               </tr>
             ) : filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={isHm ? 7 : 6} className="p-8 text-center text-slate-500">No male students found in {selectedClass}.</td>
+                <td colSpan={isHm ? 9 : 8} className="p-8 text-center text-slate-500">No students found in {selectedClass}.</td>
               </tr>
             ) : (
               filteredStudents.map(student => (
                 <tr key={student.gr_number} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="p-3 sm:p-4">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border border-slate-300 flex items-center justify-center font-bold text-slate-600 text-xs">
+                      {student.photo_url ? (
+                        <img src={student.photo_url} alt={student.full_name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span>{student.full_name?.charAt(0) || 'S'}</span>
+                      )}
+                    </div>
+                  </td>
                   <td className="p-3 sm:p-4 font-mono font-semibold text-slate-600">{student.gr_number}</td>
                   <td className="p-3 sm:p-4 font-bold text-slate-800">{student.full_name}</td>
                   <td className="p-3 sm:p-4 text-slate-600">{student.father_name || '-'}</td>
@@ -268,21 +297,35 @@ export default function ClassStudentManager({ currentUser }) {
                     </span>
                   </td>
                   {isHm && (
-                    <td className="p-3 sm:p-4 text-right space-x-2">
+                    <td className="p-3 sm:p-4">
                       <button
-                        onClick={() => handleOpenEditModal(student)}
-                        className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                        onClick={() => setViewingDocsStudent(student)}
+                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-colors"
                       >
-                        ✏️ Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteStudent(student.gr_number)}
-                        className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        🗑️ Delete
+                        📁 View Docs
                       </button>
                     </td>
                   )}
+                  <td className="p-3 sm:p-4 text-right space-x-2">
+                    {isHm ? (
+                      <>
+                        <button
+                          onClick={() => handleOpenEditModal(student)}
+                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStudent(student.gr_number)}
+                          className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-400 italic">View Only</span>
+                    )}
+                  </td>
                 </tr>
               ))
             )}
@@ -290,10 +333,72 @@ export default function ClassStudentManager({ currentUser }) {
         </table>
       </div>
 
-      {/* Add / Edit Modal */}
+      {/* HM Confidential Documents Viewer Modal */}
+      {viewingDocsStudent && isHm && (
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-800">
+                Confidential Documents: {viewingDocsStudent.full_name}
+              </h3>
+              <button 
+                onClick={() => setViewingDocsStudent(null)}
+                className="text-slate-400 hover:text-slate-600 font-bold text-lg"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs sm:text-sm">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <p className="font-semibold text-slate-700 mb-1">B-Form Document / Certificate:</p>
+                {viewingDocsStudent.b_form_url ? (
+                  <a 
+                    href={viewingDocsStudent.b_form_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-indigo-600 underline font-medium hover:text-indigo-800 break-all"
+                  >
+                    🔗 Open B-Form Link / File
+                  </a>
+                ) : (
+                  <span className="text-slate-400 italic">No B-Form uploaded.</span>
+                )}
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <p className="font-semibold text-slate-700 mb-1">Other Official Documents:</p>
+                {viewingDocsStudent.other_docs_url ? (
+                  <a 
+                    href={viewingDocsStudent.other_docs_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-indigo-600 underline font-medium hover:text-indigo-800 break-all"
+                  >
+                    🔗 Open Other Documents Link / File
+                  </a>
+                ) : (
+                  <span className="text-slate-400 italic">No other documents uploaded.</span>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setViewingDocsStudent(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Modal (HM Only) */}
       {isModalOpen && isHm && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg p-6 rounded-3xl shadow-2xl border border-slate-100">
+          <div className="bg-white w-full max-w-lg p-6 rounded-3xl shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
               <h3 className="text-base sm:text-lg font-bold text-slate-800">
                 {editingStudent ? `Edit Student (GR #${editingStudent.gr_number})` : 'Add New Student'}
@@ -392,6 +497,39 @@ export default function ClassStudentManager({ currentUser }) {
                     <option value="Morning">Morning</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Student Photo URL / Link</label>
+                <input
+                  type="text"
+                  value={formData.photo_url}
+                  onChange={e => setFormData({ ...formData, photo_url: e.target.value })}
+                  placeholder="https://example.com/student-photo.jpg"
+                  className="w-full border border-slate-300 px-3.5 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">B-Form Document Link (HM Only)</label>
+                <input
+                  type="text"
+                  value={formData.b_form_url}
+                  onChange={e => setFormData({ ...formData, b_form_url: e.target.value })}
+                  placeholder="Link to B-Form scan or PDF"
+                  className="w-full border border-slate-300 px-3.5 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Other Official Documents Link (HM Only)</label>
+                <input
+                  type="text"
+                  value={formData.other_docs_url}
+                  onChange={e => setFormData({ ...formData, other_docs_url: e.target.value })}
+                  placeholder="Link to transfer certificate or records"
+                  className="w-full border border-slate-300 px-3.5 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
+                />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
