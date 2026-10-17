@@ -8,6 +8,7 @@ export default function ClassStudentManager({ currentUser }) {
   const [selectedShift, setSelectedShift] = useState('Evening');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -57,7 +58,6 @@ export default function ClassStudentManager({ currentUser }) {
     } else {
       let fetchedStudents = data || [];
       
-      // If logged in as a teacher, strictly filter for male students only
       if (!isHm) {
         fetchedStudents = fetchedStudents.filter(st => {
           const gender = (st.gender || '').trim().toLowerCase();
@@ -68,6 +68,32 @@ export default function ClassStudentManager({ currentUser }) {
       setStudents(fetchedStudents);
     }
     setLoading(false);
+  }
+
+  // Helper function to upload files to Supabase Storage
+  async function uploadFileToSupabase(file, folderName) {
+    if (!file) return '';
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36.substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${folderName}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('student-files') // Make sure you have a public bucket named 'student-files' in Supabase
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('student-files')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (err) {
+      console.error('Error uploading file:', err.message);
+      alert('File upload failed: ' + err.message);
+      return '';
+    }
   }
 
   const handleOpenAddModal = () => {
@@ -106,8 +132,32 @@ export default function ClassStudentManager({ currentUser }) {
 
   async function handleSaveStudent(e) {
     e.preventDefault();
-    setLoading(true);
+    setUploading(true);
     setMessage('');
+
+    let photoUrl = formData.photo_url;
+    let bFormUrl = formData.b_form_url;
+    let otherDocsUrl = formData.other_docs_url;
+
+    // Check if new files were selected for upload
+    const photoInput = document.getElementById('student_photo_file');
+    const bFormInput = document.getElementById('b_form_file');
+    const otherDocsInput = document.getElementById('other_docs_file');
+
+    if (photoInput?.files?.[0]) {
+      const uploaded = await uploadFileToSupabase(photoInput.files[0], 'photos');
+      if (uploaded) photoUrl = uploaded;
+    }
+
+    if (bFormInput?.files?.[0]) {
+      const uploaded = await uploadFileToSupabase(bFormInput.files[0], 'b-forms');
+      if (uploaded) bFormUrl = uploaded;
+    }
+
+    if (otherDocsInput?.files?.[0]) {
+      const uploaded = await uploadFileToSupabase(otherDocsInput.files[0], 'documents');
+      if (uploaded) otherDocsUrl = uploaded;
+    }
 
     const payload = {
       full_name: formData.full_name,
@@ -116,9 +166,9 @@ export default function ClassStudentManager({ currentUser }) {
       section: formData.section,
       shift: formData.shift,
       gender: formData.gender,
-      photo_url: formData.photo_url,
-      b_form_url: formData.b_form_url,
-      other_docs_url: formData.other_docs_url
+      photo_url: photoUrl,
+      b_form_url: bFormUrl,
+      other_docs_url: otherDocsUrl
     };
 
     if (editingStudent) {
@@ -148,7 +198,7 @@ export default function ClassStudentManager({ currentUser }) {
         fetchStudents();
       }
     }
-    setLoading(false);
+    setUploading(false);
   }
 
   async function handleDeleteStudent(grNumber) {
@@ -189,7 +239,7 @@ export default function ClassStudentManager({ currentUser }) {
             {isHm ? 'Class-Wise Student Management & Records' : 'Class Students Directory (Male Only)'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            {isHm ? 'Manage enrollment, student photos, B-Forms, and confidential documents.' : 'View enrolled male students and profile photos for your classes.'}
+            {isHm ? 'Upload student photos, B-Forms, and official documents directly.' : 'View enrolled male students and profile photos for your classes.'}
           </p>
         </div>
 
@@ -359,7 +409,7 @@ export default function ClassStudentManager({ currentUser }) {
                     rel="noopener noreferrer" 
                     className="text-indigo-600 underline font-medium hover:text-indigo-800 break-all"
                   >
-                    🔗 Open B-Form Link / File
+                    🔗 Open B-Form File
                   </a>
                 ) : (
                   <span className="text-slate-400 italic">No B-Form uploaded.</span>
@@ -375,7 +425,7 @@ export default function ClassStudentManager({ currentUser }) {
                     rel="noopener noreferrer" 
                     className="text-indigo-600 underline font-medium hover:text-indigo-800 break-all"
                   >
-                    🔗 Open Other Documents Link / File
+                    🔗 Open Other Documents File
                   </a>
                 ) : (
                   <span className="text-slate-400 italic">No other documents uploaded.</span>
@@ -395,7 +445,7 @@ export default function ClassStudentManager({ currentUser }) {
         </div>
       )}
 
-      {/* Add / Edit Modal (HM Only) */}
+      {/* Add / Edit Modal with Direct File Uploads (HM Only) */}
       {isModalOpen && isHm && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-lg p-6 rounded-3xl shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
@@ -499,37 +549,40 @@ export default function ClassStudentManager({ currentUser }) {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-100">
-                <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Student Photo URL / Link</label>
-                <input
-                  type="text"
-                  value={formData.photo_url}
-                  onChange={e => setFormData({ ...formData, photo_url: e.target.value })}
-                  placeholder="https://example.com/student-photo.jpg"
-                  className="w-full border border-slate-300 px-3.5 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+              {/* Direct File Upload Inputs */}
+              <div className="pt-2 border-t border-slate-100 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Upload Student Photo</label>
+                  <input
+                    id="student_photo_file"
+                    type="file"
+                    accept="image/*"
+                    className="w-full border border-slate-300 px-3 py-2 rounded-xl text-xs bg-slate-50"
+                  />
+                  {formData.photo_url && <p className="text-[11px] text-slate-400 mt-1">Current photo already attached.</p>}
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">B-Form Document Link (HM Only)</label>
-                <input
-                  type="text"
-                  value={formData.b_form_url}
-                  onChange={e => setFormData({ ...formData, b_form_url: e.target.value })}
-                  placeholder="Link to B-Form scan or PDF"
-                  className="w-full border border-slate-300 px-3.5 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Upload B-Form Document (HM Only)</label>
+                  <input
+                    id="b_form_file"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="w-full border border-slate-300 px-3 py-2 rounded-xl text-xs bg-slate-50"
+                  />
+                  {formData.b_form_url && <p className="text-[11px] text-slate-400 mt-1">Current B-Form document already attached.</p>}
+                </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Other Official Documents Link (HM Only)</label>
-                <input
-                  type="text"
-                  value={formData.other_docs_url}
-                  onChange={e => setFormData({ ...formData, other_docs_url: e.target.value })}
-                  placeholder="Link to transfer certificate or records"
-                  className="w-full border border-slate-300 px-3.5 py-2.5 rounded-xl text-sm shadow-xs focus:ring-2 focus:ring-indigo-500"
-                />
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Upload Other Official Docs (HM Only)</label>
+                  <input
+                    id="other_docs_file"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="w-full border border-slate-300 px-3 py-2 rounded-xl text-xs bg-slate-50"
+                  />
+                  {formData.other_docs_url && <p className="text-[11px] text-slate-400 mt-1">Current additional documents already attached.</p>}
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
@@ -542,10 +595,10 @@ export default function ClassStudentManager({ currentUser }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={uploading}
                   className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-indigo-100 transition-all disabled:opacity-50"
                 >
-                  {loading ? 'Saving...' : 'Save Student'}
+                  {uploading ? 'Uploading & Saving...' : 'Save Student'}
                 </button>
               </div>
             </form>
