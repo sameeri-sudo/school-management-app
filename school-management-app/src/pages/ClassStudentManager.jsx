@@ -75,11 +75,11 @@ export default function ClassStudentManager({ currentUser }) {
     if (!file) return '';
     try {
       const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36.substring(2)}_${Date.now()}.${fileExt}`;
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
       const filePath = `${folderName}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('student-files') // Make sure you have a public bucket named 'student-files' in Supabase
+        .from('student-files')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
@@ -139,7 +139,6 @@ export default function ClassStudentManager({ currentUser }) {
     let bFormUrl = formData.b_form_url;
     let otherDocsUrl = formData.other_docs_url;
 
-    // Check if new files were selected for upload
     const photoInput = document.getElementById('student_photo_file');
     const bFormInput = document.getElementById('b_form_file');
     const otherDocsInput = document.getElementById('other_docs_file');
@@ -232,7 +231,6 @@ export default function ClassStudentManager({ currentUser }) {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6">
-      {/* Header & Actions */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-slate-800">
@@ -259,7 +257,6 @@ export default function ClassStudentManager({ currentUser }) {
         </div>
       )}
 
-      {/* Filters Bar */}
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
         <div className="flex flex-wrap items-center gap-3">
           <div>
@@ -299,7 +296,6 @@ export default function ClassStudentManager({ currentUser }) {
         </div>
       </div>
 
-      {/* Student Table */}
       <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-xs bg-white mb-6">
         <table className="w-full text-left border-collapse min-w-[800px]">
           <thead>
@@ -383,7 +379,6 @@ export default function ClassStudentManager({ currentUser }) {
         </table>
       </div>
 
-      {/* HM Confidential Documents Viewer Modal */}
       {viewingDocsStudent && isHm && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100">
@@ -445,7 +440,6 @@ export default function ClassStudentManager({ currentUser }) {
         </div>
       )}
 
-      {/* Add / Edit Modal with Direct File Uploads (HM Only) */}
       {isModalOpen && isHm && (
         <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
           <div className="bg-white w-full max-w-lg p-6 rounded-3xl shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
@@ -549,7 +543,6 @@ export default function ClassStudentManager({ currentUser }) {
                 </div>
               </div>
 
-              {/* Direct File Upload Inputs */}
               <div className="pt-2 border-t border-slate-100 space-y-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Upload Student Photo</label>
