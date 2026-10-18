@@ -12,7 +12,6 @@ export default function ClassStudentManager({ currentUser }) {
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modal / Form state for adding/editing students
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [formData, setFormData] = useState({
@@ -28,7 +27,6 @@ export default function ClassStudentManager({ currentUser }) {
     other_docs_url: ''
   });
 
-  // Modal state for viewing confidential student docs (HM only)
   const [viewingDocsStudent, setViewingDocsStudent] = useState(null);
 
   const classes = isHm 
@@ -57,44 +55,25 @@ export default function ClassStudentManager({ currentUser }) {
       setStudents([]);
     } else {
       let fetchedStudents = data || [];
-      
       if (!isHm) {
         fetchedStudents = fetchedStudents.filter(st => {
           const gender = (st.gender || '').trim().toLowerCase();
           return gender === 'male' || gender === 'm';
         });
       }
-
       setStudents(fetchedStudents);
     }
     setLoading(false);
   }
 
-  // Helper function to upload files to Supabase Storage
-  async function uploadFileToSupabase(file, folderName) {
-    if (!file) return '';
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-      const filePath = `${folderName}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('student-files')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('student-files')
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
-    } catch (err) {
-      console.error('Error uploading file:', err.message);
-      alert('File upload failed: ' + err.message);
-      return '';
-    }
-  }
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
 
   const handleOpenAddModal = () => {
     setEditingStudent(null);
@@ -143,19 +122,21 @@ export default function ClassStudentManager({ currentUser }) {
     const bFormInput = document.getElementById('b_form_file');
     const otherDocsInput = document.getElementById('other_docs_file');
 
-    if (photoInput?.files?.[0]) {
-      const uploaded = await uploadFileToSupabase(photoInput.files[0], 'photos');
-      if (uploaded) photoUrl = uploaded;
-    }
-
-    if (bFormInput?.files?.[0]) {
-      const uploaded = await uploadFileToSupabase(bFormInput.files[0], 'b-forms');
-      if (uploaded) bFormUrl = uploaded;
-    }
-
-    if (otherDocsInput?.files?.[0]) {
-      const uploaded = await uploadFileToSupabase(otherDocsInput.files[0], 'documents');
-      if (uploaded) otherDocsUrl = uploaded;
+    try {
+      if (photoInput?.files?.[0]) {
+        photoUrl = await convertFileToBase64(photoInput.files[0]);
+      }
+      if (bFormInput?.files?.[0]) {
+        bFormUrl = await convertFileToBase64(bFormInput.files[0]);
+      }
+      if (otherDocsInput?.files?.[0]) {
+        otherDocsUrl = await convertFileToBase64(otherDocsInput.files[0]);
+      }
+    } catch (err) {
+      console.error('Error reading files:', err);
+      alert('Error reading files.');
+      setUploading(false);
+      return;
     }
 
     const payload = {
@@ -237,7 +218,7 @@ export default function ClassStudentManager({ currentUser }) {
             {isHm ? 'Class-Wise Student Management & Records' : 'Class Students Directory (Male Only)'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            {isHm ? 'Upload student photos, B-Forms, and official documents directly.' : 'View enrolled male students and profile photos for your classes.'}
+            {isHm ? 'Upload student photos and confidential documents directly.' : 'View enrolled male students and profile photos for your classes.'}
           </p>
         </div>
 
@@ -591,7 +572,7 @@ export default function ClassStudentManager({ currentUser }) {
                   disabled={uploading}
                   className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-indigo-100 transition-all disabled:opacity-50"
                 >
-                  {uploading ? 'Uploading & Saving...' : 'Save Student'}
+                  {uploading ? 'Processing & Saving...' : 'Save Student'}
                 </button>
               </div>
             </form>
