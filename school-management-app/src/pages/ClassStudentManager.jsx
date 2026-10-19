@@ -41,7 +41,7 @@ export default function ClassStudentManager({ currentUser }) {
     setLoading(true);
     let query = supabase
       .from('students')
-      .select('*')
+      .select('gr_number, full_name, father_name, class_name, section, shift, gender, photo_url, b_form_url, other_docs_url')
       .eq('class_name', selectedClass)
       .order('gr_number', { ascending: true });
 
@@ -65,6 +65,45 @@ export default function ClassStudentManager({ currentUser }) {
     }
     setLoading(false);
   }
+
+  // Automatic Image Compressor & Base64 Converter
+  const compressAndConvertImage = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 200;
+          const MAX_HEIGHT = 200;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Compress to lightweight JPEG (0.7 quality)
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+      };
+    });
+  };
 
   const convertFileToBase64 = (file) => {
     return new Promise((resolve, reject) => {
@@ -124,7 +163,7 @@ export default function ClassStudentManager({ currentUser }) {
 
     try {
       if (photoInput?.files?.[0]) {
-        photoUrl = await convertFileToBase64(photoInput.files[0]);
+        photoUrl = await compressAndConvertImage(photoInput.files[0]);
       }
       if (bFormInput?.files?.[0]) {
         bFormUrl = await convertFileToBase64(bFormInput.files[0]);
@@ -133,7 +172,7 @@ export default function ClassStudentManager({ currentUser }) {
         otherDocsUrl = await convertFileToBase64(otherDocsInput.files[0]);
       }
     } catch (err) {
-      console.error('Error reading files:', err);
+      console.error('Error processing files:', err);
       alert('Error reading files.');
       setUploading(false);
       return;
@@ -526,7 +565,7 @@ export default function ClassStudentManager({ currentUser }) {
 
               <div className="pt-2 border-t border-slate-100 space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Upload Student Photo</label>
+                  <label className="block text-xs font-semibold uppercase text-indigo-600 mb-1">Upload Student Photo (Auto-Compressed)</label>
                   <input
                     id="student_photo_file"
                     type="file"
