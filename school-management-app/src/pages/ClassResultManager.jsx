@@ -97,9 +97,35 @@ export default function ClassResultManager({ currentUser }) {
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [selectedStudentForCard, setSelectedStudentForCard] = useState(null);
+  
+  // Offline support state
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncingOffline, setSyncingOffline] = useState(false);
 
   const standardSubjects = allClassStandardSubjects[selectedClass] || [];
   const activeEditableSubjects = isHm ? standardSubjects : (teacherInfo?.assignments[selectedClass] || []);
+
+  // Monitor Online/Offline status and auto-sync queue when connection returns
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncOfflineDataToSupabase();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Try syncing on initial load if online
+    if (navigator.onLine) {
+      syncOfflineDataToSupabase();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (allowedClasses.length > 0 && !allowedClasses.includes(selectedClass)) {
@@ -120,6 +146,7 @@ export default function ClassResultManager({ currentUser }) {
     setLoading(true);
     setSuccessMsg('');
     try {
+      // 1. Fetch Students
       const { data: studentList, error: studentError } = await supabase
         .from('students')
         .select('*')
@@ -142,27 +169,42 @@ export default function ClassResultManager({ currentUser }) {
         return true;
       });
 
-      const { data: resultList, error: resultError } = await supabase
-        .from('student_results')
-        .select('*')
-        .eq('class_name', selectedClass)
-        .eq('term', term);
+      let marksMap = {};
+      let loadedMaxMarks = { ...maxMarksConfig };
 
-      if (resultError) throw resultError;
+      // 2. Try fetching from Supabase if online
+      if (navigator.onLine) {
+        const { data: resultList, error: resultError } = await supabase
+          .from('student_results')
+          .select('*')
+          .eq('class_name', selectedClass)
+          .eq('term', term);
 
-      const marksMap = {};
-      const loadedMaxMarks = { ...maxMarksConfig };
-
-      resultList?.forEach((res) => {
-        const savedMarks = res.marks || {};
-        marksMap[res.student_id] = {
-          ...savedMarks,
-          remarks: savedMarks.remarks || res.remarks || 'Passed',
-        };
-        if (savedMarks._maxMarksConfig) {
-          Object.assign(loadedMaxMarks, savedMarks._maxMarksConfig);
+        if (!resultError && resultList) {
+          resultList.forEach((res) => {
+            const savedMarks = res.marks || {};
+            marksMap[res.student_id] = {
+              ...savedMarks,
+              remarks: savedMarks.remarks || res.remarks || 'Passed',
+            };
+            if (savedMarks._maxMarksConfig) {
+              Object.assign(loadedMaxMarks, savedMarks._maxMarksConfig);
+            }
+          });
         }
-      });
+      }
+
+      // 3. Fallback or merge with local offline storage cache
+      const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
+      const localCachedData = localStorage.getItem(offlineCacheKey);
+      if (localCachedData) {
+        try {
+          const parsedCache = JSON.parse(localCachedData);
+          marksMap = { ...marksMap, ...parsedCache };
+        } catch (e) {
+          console.error('Error reading offline cache:', e);
+        }
+      }
 
       filteredStudents.forEach((st) => {
         if (!marksMap[st.gr_number]) {
@@ -184,31 +226,80 @@ export default function ClassResultManager({ currentUser }) {
       setMarksData(marksMap);
     } catch (err) {
       console.error('Error fetching data:', err.message);
+      // Load entirely from local cache if offline and network fails
+      loadFromOfflineCache();
     } finally {
       setLoading(false);
     }
   };
 
+  const loadFromOfflineCache = () => {
+    const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
+    const localCachedData = localStorage.getItem(offlineCacheKey);
+    if (localCachedData) {
+      try {
+        const parsedCache = JSON.parse(localCachedData);
+        setMarksData(parsedCache);
+        setSuccessMsg('⚠️ Loaded offline cached data.');
+      } catch (e) {
+        console.error('Failed to parse offline cache');
+      }
+    }
+  };
+
+  // Background Auto-Sync when back online
+  const syncOfflineDataToSupabase = async () => {
+    const pendingQueueKey = 'almadni_offline_sync_queue';
+    const queueData = localStorage.getItem(pendingQueueKey);
+    if (!queueData) return;
+
+    try {
+      setSyncingOffline(true);
+      const queue = JSON.parse(queueData);
+      if (queue.length === 0) return;
+
+      for (const item of queue) {
+        await supabase
+          .from('student_results')
+          .upsert(item.records, { onConflict: 'student_id, term' });
+      }
+
+      // Clear queue once successfully synced
+      localStorage.removeItem(pendingQueueKey);
+      setSuccessMsg('🔄 All offline marks successfully synced to database!');
+    } catch (err) {
+      console.error('Sync failed:', err);
+    } finally {
+      setSyncingOffline(false);
+    }
+  };
+
   const handleMarkChange = (grNumber, subject, value) => {
+    let updatedMarks;
     if (value === '') {
-      setMarksData((prev) => ({
-        ...prev,
+      updatedMarks = {
+        ...marksData,
         [grNumber]: {
-          ...prev[grNumber],
+          ...marksData[grNumber],
           [subject]: '',
         },
-      }));
-      return;
+      };
+    } else {
+      const maxAllowed = Number(maxMarksConfig[subject]) || 100;
+      const numValue = Math.max(0, Math.min(maxAllowed, Number(value) || 0));
+      updatedMarks = {
+        ...marksData,
+        [grNumber]: {
+          ...marksData[grNumber],
+          [subject]: numValue,
+        },
+      };
     }
-    const maxAllowed = Number(maxMarksConfig[subject]) || 100;
-    const numValue = Math.max(0, Math.min(maxAllowed, Number(value) || 0));
-    setMarksData((prev) => ({
-      ...prev,
-      [grNumber]: {
-        ...prev[grNumber],
-        [subject]: numValue,
-      },
-    }));
+    setMarksData(updatedMarks);
+
+    // Save immediately to offline storage
+    const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
+    localStorage.setItem(offlineCacheKey, JSON.stringify(updatedMarks));
   };
 
   const handleMaxMarkChange = (subject, value) => {
@@ -224,13 +315,17 @@ export default function ClassResultManager({ currentUser }) {
   };
 
   const handleRemarkChange = (grNumber, value) => {
-    setMarksData((prev) => ({
-      ...prev,
+    const updatedMarks = {
+      ...marksData,
       [grNumber]: {
-        ...prev[grNumber],
+        ...marksData[grNumber],
         remarks: value,
       },
-    }));
+    };
+    setMarksData(updatedMarks);
+
+    const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
+    localStorage.setItem(offlineCacheKey, JSON.stringify(updatedMarks));
   };
 
   const calculateTotalObtained = (studentMarks) => {
@@ -254,26 +349,14 @@ export default function ClassResultManager({ currentUser }) {
     setSaving(true);
     setSuccessMsg('');
     try {
-      const { data: existingRecords } = await supabase
-        .from('student_results')
-        .select('*')
-        .eq('class_name', selectedClass)
-        .eq('term', term);
-
-      const existingMap = {};
-      existingRecords?.forEach(rec => {
-        existingMap[rec.student_id] = rec;
-      });
-
       const totalMaxScore = calculateTotalMaxScore();
 
       const recordsToUpsert = students.map((st) => {
         const gr = st.gr_number;
         const m = marksData[gr] || {};
-        const existing = existingMap[gr];
 
-        const mergedMarks = existing?.marks ? { ...existing.marks } : {};
-        activeEditableSubjects.forEach(sub => {
+        const mergedMarks = {};
+        standardSubjects.forEach(sub => {
           mergedMarks[sub] = m[sub] !== '' && m[sub] !== undefined ? Number(m[sub]) : 0;
         });
 
@@ -297,9 +380,25 @@ export default function ClassResultManager({ currentUser }) {
           total_max: totalMaxScore,
           percentage: Number(percentage.toFixed(2)),
           grade: grade,
-          remarks: m.remarks || existing?.remarks || 'Passed'
+          remarks: m.remarks || 'Passed'
         };
       });
+
+      // Always save locally first
+      const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
+      localStorage.setItem(offlineCacheKey, JSON.stringify(marksData));
+
+      if (!navigator.onLine) {
+        // Queue for background sync when offline
+        const pendingQueueKey = 'almadni_offline_sync_queue';
+        const existingQueue = JSON.parse(localStorage.getItem(pendingQueueKey) || '[]');
+        existingQueue.push({ class: selectedClass, term, records: recordsToUpsert });
+        localStorage.setItem(pendingQueueKey, JSON.stringify(existingQueue));
+
+        setSuccessMsg('📴 You are offline. Marks saved locally on your device and will auto-sync when connected!');
+        setSaving(false);
+        return;
+      }
 
       const { error } = await supabase
         .from('student_results')
@@ -407,10 +506,21 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="print:hidden">
+        {/* Network status indicator bar */}
+        <div className="mb-4 flex justify-between items-center bg-slate-100 px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200">
+          <div className="flex items-center gap-2">
+            <span className={`w-3 h-3 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+            <span className={isOnline ? 'text-emerald-700' : 'text-rose-700'}>
+              {isOnline ? 'Online (Connected to Database)' : 'Offline Mode (Working Locally - Auto-sync enabled)'}
+            </span>
+          </div>
+          {syncingOffline && <span className="text-blue-600 animate-pulse">Syncing offline data...</span>}
+        </div>
+
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
-              {isHm ? 'Exam Results Management & Report Cards' : `${teacherInfo?.name} - Subject Grading`}
+              {isHm ? 'Exam Results Management & Report Cards' : `${teacherInfo?.name} Subject Grading`}
             </h1>
             <p className="text-sm text-gray-500">
               {isHm ? `Al-Madni Secondary School B.A.B. Matiari (${shiftFilter} Shift) | Grand Total Max: ${totalMaxScore} | Students Graded: ${studentsWithMarksCount}/${students.length}` : `Showing Evening Male Students Only | Grand Total Max: ${totalMaxScore} | Editable Subjects: ${activeEditableSubjects.join(', ') || 'None'}`}
