@@ -92,7 +92,7 @@ export default function ClassResultManager({ currentUser }) {
   const [term, setTerm] = useState('Mid-Term 2026');
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
-  const [classMaxMarksConfig, setClassMaxMarksConfig] = useState({}); // Stores per-class max marks configs
+  const [classMaxMarksConfig, setClassMaxMarksConfig] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -104,7 +104,6 @@ export default function ClassResultManager({ currentUser }) {
   const standardSubjects = allClassStandardSubjects[selectedClass] || [];
   const activeEditableSubjects = isHm ? standardSubjects : (teacherInfo?.assignments[selectedClass] || []);
 
-  // Get active max marks config specifically for the currently selected class
   const maxMarksConfig = classMaxMarksConfig[selectedClass] || {};
 
   useEffect(() => {
@@ -166,7 +165,7 @@ export default function ClassResultManager({ currentUser }) {
       let marksMap = {};
       const currentClassMax = {};
       standardSubjects.forEach(sub => {
-        currentClassMax[sub] = 100; // default
+        currentClassMax[sub] = 100; // Default to 100 per subject
       });
 
       if (navigator.onLine) {
@@ -201,7 +200,6 @@ export default function ClassResultManager({ currentUser }) {
         }
       }
 
-      // Also check if max marks config was cached locally for this class
       const offlineMaxKey = `almadni_maxmarks_${selectedClass}_${term}`;
       const localMaxData = localStorage.getItem(offlineMaxKey);
       if (localMaxData) {
@@ -294,9 +292,9 @@ export default function ClassResultManager({ currentUser }) {
 
   const handleMarkChange = (grNumber, subject, value) => {
     let updatedMarks;
-    const subMax = Number(maxMarksConfig[subject]) ?? 100;
+    const subMax = Number(maxMarksConfig[subject] ?? 100);
     
-    if (subMax === 0) return; // Cannot grade excluded subjects
+    if (subMax === 0) return;
 
     if (value === '') {
       updatedMarks = {
@@ -325,7 +323,7 @@ export default function ClassResultManager({ currentUser }) {
   const handleMaxMarkChange = (subject, value) => {
     const val = value === '' ? '' : Math.max(0, Number(value) || 0);
     const updatedClassConfig = {
-      ...maxMarksConfig,
+      ...(maxMarksConfig),
       [subject]: val
     };
 
@@ -354,15 +352,15 @@ export default function ClassResultManager({ currentUser }) {
 
   const calculateTotalObtained = (studentMarks) => {
     return standardSubjects.reduce((sum, sub) => {
-      const maxSub = Number(maxMarksConfig[sub]) ?? 100;
-      if (maxSub === 0) return sum; // Excluded subject
+      const maxSub = Number(maxMarksConfig[sub] ?? 100);
+      if (maxSub === 0) return sum;
       return sum + (Number(studentMarks?.[sub]) || 0);
     }, 0);
   };
 
   const calculateTotalMaxScore = () => {
     return standardSubjects.reduce((sum, sub) => {
-      const maxSub = Number(maxMarksConfig[sub]) ?? 100;
+      const maxSub = Number(maxMarksConfig[sub] ?? 100);
       return sum + maxSub;
     }, 0);
   };
@@ -388,7 +386,7 @@ export default function ClassResultManager({ currentUser }) {
 
         const mergedMarks = {};
         standardSubjects.forEach(sub => {
-          const maxSub = Number(maxMarksConfig[sub]) ?? 100;
+          const maxSub = Number(maxMarksConfig[sub] ?? 100);
           if (maxSub === 0) {
             mergedMarks[sub] = 0;
           } else {
@@ -469,7 +467,7 @@ export default function ClassResultManager({ currentUser }) {
         `"${st.father_name || ''}"`,
         st.shift || shiftFilter,
         st.gender || 'Male',
-        ...standardSubjects.map(sub => Number(maxMarksConfig[sub]) === 0 ? 'Excluded' : (m[sub] ?? 0)),
+        ...standardSubjects.map(sub => Number(maxMarksConfig[sub] ?? 100) === 0 ? 'Excluded' : (m[sub] ?? 0)),
         total,
         totalMaxScore,
         percentage + '%',
@@ -505,7 +503,7 @@ export default function ClassResultManager({ currentUser }) {
 
     let subjectDetails = '';
     standardSubjects.forEach(sub => {
-      const maxSub = Number(maxMarksConfig[sub]) ?? 100;
+      const maxSub = Number(maxMarksConfig[sub] ?? 100);
       if (maxSub > 0) {
         subjectDetails += `• ${sub}: ${m[sub] || 0}/${maxSub}\n`;
       } else {
@@ -621,12 +619,12 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
           </div>
         </div>
 
-        {/* Per-Class Subject Max Marks Setup Panel (Set to 0 to exclude) */}
+        {/* Per-Class Subject Max Marks Setup Panel */}
         <div className="mb-6 bg-slate-50 border border-slate-200 p-4 rounded-xl">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-            ⚙️ Set Subject Total/Max Marks for {selectedClass} (Set to 0 to exclude un-tested subjects):
+            ⚙️ Set Subject Total/Max Marks for {selectedClass} (Set to 0 to exclude):
           </h3>
-          <p className="text-[11px] text-slate-500 mb-3">Changes here apply only to {selectedClass}. Excluded subjects (0 marks) won't affect grand totals or percentages.</p>
+          <p className="text-[11px] text-slate-500 mb-3">Adjust subject totals for {selectedClass} independently. Changing values here will not affect other classes.</p>
           <div className="flex flex-wrap gap-3">
             {standardSubjects.map((sub) => {
               const isEditable = isHm || activeEditableSubjects.includes(sub);
@@ -666,7 +664,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[900px]">
                 <thead>
                   <tr className="bg-gray-50 text-gray-700 text-xs uppercase tracking-wider border-b">
                     <th className="p-3">Student & Photo</th>
@@ -820,7 +818,7 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
               {standardSubjects.map((sub) => {
                 const subjectMax = maxMarksConfig[sub] ?? 100;
                 const isExcluded = Number(subjectMax) === 0;
-                if (isExcluded) return null; // Hide excluded subjects from printed report card
+                if (isExcluded) return null;
                 return (
                   <tr key={sub}>
                     <td className="border border-slate-800 p-1.5">{sub}</td>
