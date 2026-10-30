@@ -92,7 +92,7 @@ export default function ClassResultManager({ currentUser }) {
   const [term, setTerm] = useState('Mid-Term 2026');
   const [students, setStudents] = useState([]);
   const [marksData, setMarksData] = useState({});
-  const [maxMarksConfig, setMaxMarksConfig] = useState({});
+  const [classMaxMarksConfig, setClassMaxMarksConfig] = useState({}); // Stores per-class max marks configs
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -103,6 +103,9 @@ export default function ClassResultManager({ currentUser }) {
 
   const standardSubjects = allClassStandardSubjects[selectedClass] || [];
   const activeEditableSubjects = isHm ? standardSubjects : (teacherInfo?.assignments[selectedClass] || []);
+
+  // Get active max marks config specifically for the currently selected class
+  const maxMarksConfig = classMaxMarksConfig[selectedClass] || {};
 
   useEffect(() => {
     const handleOnline = () => {
@@ -131,11 +134,6 @@ export default function ClassResultManager({ currentUser }) {
   }, [currentUser]);
 
   useEffect(() => {
-    const initialMax = {};
-    allClassStandardSubjects[selectedClass]?.forEach(sub => {
-      initialMax[sub] = 100;
-    });
-    setMaxMarksConfig(initialMax);
     fetchClassData();
   }, [selectedClass, term, shiftFilter]);
 
@@ -166,7 +164,10 @@ export default function ClassResultManager({ currentUser }) {
       });
 
       let marksMap = {};
-      let loadedMaxMarks = { ...maxMarksConfig };
+      const currentClassMax = {};
+      standardSubjects.forEach(sub => {
+        currentClassMax[sub] = 100; // default
+      });
 
       if (navigator.onLine) {
         const { data: resultList, error: resultError } = await supabase
@@ -183,7 +184,7 @@ export default function ClassResultManager({ currentUser }) {
               remarks: savedMarks.remarks || res.remarks || 'Passed',
             };
             if (savedMarks._maxMarksConfig) {
-              Object.assign(loadedMaxMarks, savedMarks._maxMarksConfig);
+              Object.assign(currentClassMax, savedMarks._maxMarksConfig);
             }
           });
         }
@@ -197,6 +198,18 @@ export default function ClassResultManager({ currentUser }) {
           marksMap = { ...marksMap, ...parsedCache };
         } catch (e) {
           console.error('Error reading offline cache:', e);
+        }
+      }
+
+      // Also check if max marks config was cached locally for this class
+      const offlineMaxKey = `almadni_maxmarks_${selectedClass}_${term}`;
+      const localMaxData = localStorage.getItem(offlineMaxKey);
+      if (localMaxData) {
+        try {
+          const parsedMax = JSON.parse(localMaxData);
+          Object.assign(currentClassMax, parsedMax);
+        } catch (e) {
+          console.error('Error reading offline max marks:', e);
         }
       }
 
@@ -215,7 +228,10 @@ export default function ClassResultManager({ currentUser }) {
         }
       });
 
-      setMaxMarksConfig(loadedMaxMarks);
+      setClassMaxMarksConfig(prev => ({
+        ...prev,
+        [selectedClass]: currentClassMax
+      }));
       setStudents(filteredStudents);
       setMarksData(marksMap);
     } catch (err) {
@@ -236,6 +252,17 @@ export default function ClassResultManager({ currentUser }) {
         setSuccessMsg('⚠️ Loaded offline cached data.');
       } catch (e) {
         console.error('Failed to parse offline cache');
+      }
+    }
+
+    const offlineMaxKey = `almadni_maxmarks_${selectedClass}_${term}`;
+    const localMaxData = localStorage.getItem(offlineMaxKey);
+    if (localMaxData) {
+      try {
+        const parsedMax = JSON.parse(localMaxData);
+        setClassMaxMarksConfig(prev => ({ ...prev, [selectedClass]: parsedMax }));
+      } catch (e) {
+        console.error('Failed to parse offline max marks cache');
       }
     }
   };
@@ -267,12 +294,9 @@ export default function ClassResultManager({ currentUser }) {
 
   const handleMarkChange = (grNumber, subject, value) => {
     let updatedMarks;
-    const maxAllowed = Number(maxMarksConfig[subject]) || 100;
+    const subMax = Number(maxMarksConfig[subject]) ?? 100;
     
-    // If max marks for this subject is set to 0, force score to 0
-    if (maxAllowed === 0) {
-      return;
-    }
+    if (subMax === 0) return; // Cannot grade excluded subjects
 
     if (value === '') {
       updatedMarks = {
@@ -283,7 +307,7 @@ export default function ClassResultManager({ currentUser }) {
         },
       };
     } else {
-      const numValue = Math.max(0, Math.min(maxAllowed, Number(value) || 0));
+      const numValue = Math.max(0, Math.min(subMax, Number(value) || 0));
       updatedMarks = {
         ...marksData,
         [grNumber]: {
@@ -299,15 +323,19 @@ export default function ClassResultManager({ currentUser }) {
   };
 
   const handleMaxMarkChange = (subject, value) => {
-    if (value === '') {
-      setMaxMarksConfig(prev => ({ ...prev, [subject]: '' }));
-      return;
-    }
-    const val = Math.max(0, Number(value) || 0); // Allow 0 to exclude subject
-    setMaxMarksConfig(prev => ({
-      ...prev,
+    const val = value === '' ? '' : Math.max(0, Number(value) || 0);
+    const updatedClassConfig = {
+      ...maxMarksConfig,
       [subject]: val
+    };
+
+    setClassMaxMarksConfig(prev => ({
+      ...prev,
+      [selectedClass]: updatedClassConfig
     }));
+
+    const offlineMaxKey = `almadni_maxmarks_${selectedClass}_${term}`;
+    localStorage.setItem(offlineMaxKey, JSON.stringify(updatedClassConfig));
   };
 
   const handleRemarkChange = (grNumber, value) => {
@@ -324,19 +352,18 @@ export default function ClassResultManager({ currentUser }) {
     localStorage.setItem(offlineCacheKey, JSON.stringify(updatedMarks));
   };
 
-  // Only sum up subjects where max marks > 0
   const calculateTotalObtained = (studentMarks) => {
     return standardSubjects.reduce((sum, sub) => {
-      const maxSub = Number(maxMarksConfig[sub]) || 0;
-      if (maxSub === 0) return sum; // Skip excluded subjects
+      const maxSub = Number(maxMarksConfig[sub]) ?? 100;
+      if (maxSub === 0) return sum; // Excluded subject
       return sum + (Number(studentMarks?.[sub]) || 0);
     }, 0);
   };
 
   const calculateTotalMaxScore = () => {
     return standardSubjects.reduce((sum, sub) => {
-      const maxSub = Number(maxMarksConfig[sub]) || 0;
-      return sum + maxSub; // If 0, adds nothing to grand total
+      const maxSub = Number(maxMarksConfig[sub]) ?? 100;
+      return sum + maxSub;
     }, 0);
   };
 
@@ -361,9 +388,9 @@ export default function ClassResultManager({ currentUser }) {
 
         const mergedMarks = {};
         standardSubjects.forEach(sub => {
-          const maxSub = Number(maxMarksConfig[sub]) || 0;
+          const maxSub = Number(maxMarksConfig[sub]) ?? 100;
           if (maxSub === 0) {
-            mergedMarks[sub] = 0; // Set to 0 if excluded
+            mergedMarks[sub] = 0;
           } else {
             mergedMarks[sub] = m[sub] !== '' && m[sub] !== undefined ? Number(m[sub]) : 0;
           }
@@ -426,7 +453,7 @@ export default function ClassResultManager({ currentUser }) {
 
     const totalMaxScore = calculateTotalMaxScore();
     let csvContent = "data:text/csv;charset=utf-8,";
-    const headers = ["GR Number", "Student Name", "Father's Name", "Shift", "Gender", ...standardSubjects.map(s => `${s} (Max ${maxMarksConfig[s] || 0})`), "Total Obtained", "Max Marks", "Percentage", "Grade", "Remarks"];
+    const headers = ["GR Number", "Student Name", "Father's Name", "Shift", "Gender", ...standardSubjects.map(s => `${s} (Max ${maxMarksConfig[s] ?? 100})`), "Total Obtained", "Max Marks", "Percentage", "Grade", "Remarks"];
     csvContent += headers.join(",") + "\n";
 
     students.forEach((st) => {
@@ -478,7 +505,7 @@ export default function ClassResultManager({ currentUser }) {
 
     let subjectDetails = '';
     standardSubjects.forEach(sub => {
-      const maxSub = Number(maxMarksConfig[sub]) || 0;
+      const maxSub = Number(maxMarksConfig[sub]) ?? 100;
       if (maxSub > 0) {
         subjectDetails += `• ${sub}: ${m[sub] || 0}/${maxSub}\n`;
       } else {
@@ -594,12 +621,12 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
           </div>
         </div>
 
-        {/* Dedicated Easy Subject Max Marks Setup Panel (Set to 0 to exclude) */}
+        {/* Per-Class Subject Max Marks Setup Panel (Set to 0 to exclude) */}
         <div className="mb-6 bg-slate-50 border border-slate-200 p-4 rounded-xl">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-            ⚙️ Set Subject Total/Max Marks (Set to 0 to exclude un-tested subjects from totals):
+            ⚙️ Set Subject Total/Max Marks for {selectedClass} (Set to 0 to exclude un-tested subjects):
           </h3>
-          <p className="text-[11px] text-slate-500 mb-3">If a subject was not taken, set its max marks to 0 so it won't affect grand totals or percentages.</p>
+          <p className="text-[11px] text-slate-500 mb-3">Changes here apply only to {selectedClass}. Excluded subjects (0 marks) won't affect grand totals or percentages.</p>
           <div className="flex flex-wrap gap-3">
             {standardSubjects.map((sub) => {
               const isEditable = isHm || activeEditableSubjects.includes(sub);
