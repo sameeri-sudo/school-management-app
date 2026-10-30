@@ -98,14 +98,12 @@ export default function ClassResultManager({ currentUser }) {
   const [successMsg, setSuccessMsg] = useState('');
   const [selectedStudentForCard, setSelectedStudentForCard] = useState(null);
   
-  // Offline support state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncingOffline, setSyncingOffline] = useState(false);
 
   const standardSubjects = allClassStandardSubjects[selectedClass] || [];
   const activeEditableSubjects = isHm ? standardSubjects : (teacherInfo?.assignments[selectedClass] || []);
 
-  // Monitor Online/Offline status and auto-sync queue when connection returns
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -116,7 +114,6 @@ export default function ClassResultManager({ currentUser }) {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Try syncing on initial load if online
     if (navigator.onLine) {
       syncOfflineDataToSupabase();
     }
@@ -146,7 +143,6 @@ export default function ClassResultManager({ currentUser }) {
     setLoading(true);
     setSuccessMsg('');
     try {
-      // 1. Fetch Students
       const { data: studentList, error: studentError } = await supabase
         .from('students')
         .select('*')
@@ -172,7 +168,6 @@ export default function ClassResultManager({ currentUser }) {
       let marksMap = {};
       let loadedMaxMarks = { ...maxMarksConfig };
 
-      // 2. Try fetching from Supabase if online
       if (navigator.onLine) {
         const { data: resultList, error: resultError } = await supabase
           .from('student_results')
@@ -194,7 +189,6 @@ export default function ClassResultManager({ currentUser }) {
         }
       }
 
-      // 3. Fallback or merge with local offline storage cache
       const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
       const localCachedData = localStorage.getItem(offlineCacheKey);
       if (localCachedData) {
@@ -226,7 +220,6 @@ export default function ClassResultManager({ currentUser }) {
       setMarksData(marksMap);
     } catch (err) {
       console.error('Error fetching data:', err.message);
-      // Load entirely from local cache if offline and network fails
       loadFromOfflineCache();
     } finally {
       setLoading(false);
@@ -247,7 +240,6 @@ export default function ClassResultManager({ currentUser }) {
     }
   };
 
-  // Background Auto-Sync when back online
   const syncOfflineDataToSupabase = async () => {
     const pendingQueueKey = 'almadni_offline_sync_queue';
     const queueData = localStorage.getItem(pendingQueueKey);
@@ -264,7 +256,6 @@ export default function ClassResultManager({ currentUser }) {
           .upsert(item.records, { onConflict: 'student_id, term' });
       }
 
-      // Clear queue once successfully synced
       localStorage.removeItem(pendingQueueKey);
       setSuccessMsg('🔄 All offline marks successfully synced to database!');
     } catch (err) {
@@ -276,6 +267,13 @@ export default function ClassResultManager({ currentUser }) {
 
   const handleMarkChange = (grNumber, subject, value) => {
     let updatedMarks;
+    const maxAllowed = Number(maxMarksConfig[subject]) || 100;
+    
+    // If max marks for this subject is set to 0, force score to 0
+    if (maxAllowed === 0) {
+      return;
+    }
+
     if (value === '') {
       updatedMarks = {
         ...marksData,
@@ -285,7 +283,6 @@ export default function ClassResultManager({ currentUser }) {
         },
       };
     } else {
-      const maxAllowed = Number(maxMarksConfig[subject]) || 100;
       const numValue = Math.max(0, Math.min(maxAllowed, Number(value) || 0));
       updatedMarks = {
         ...marksData,
@@ -297,7 +294,6 @@ export default function ClassResultManager({ currentUser }) {
     }
     setMarksData(updatedMarks);
 
-    // Save immediately to offline storage
     const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
     localStorage.setItem(offlineCacheKey, JSON.stringify(updatedMarks));
   };
@@ -307,7 +303,7 @@ export default function ClassResultManager({ currentUser }) {
       setMaxMarksConfig(prev => ({ ...prev, [subject]: '' }));
       return;
     }
-    const val = Math.max(1, Number(value) || 100);
+    const val = Math.max(0, Number(value) || 0); // Allow 0 to exclude subject
     setMaxMarksConfig(prev => ({
       ...prev,
       [subject]: val
@@ -328,12 +324,20 @@ export default function ClassResultManager({ currentUser }) {
     localStorage.setItem(offlineCacheKey, JSON.stringify(updatedMarks));
   };
 
+  // Only sum up subjects where max marks > 0
   const calculateTotalObtained = (studentMarks) => {
-    return standardSubjects.reduce((sum, sub) => sum + (Number(studentMarks?.[sub]) || 0), 0);
+    return standardSubjects.reduce((sum, sub) => {
+      const maxSub = Number(maxMarksConfig[sub]) || 0;
+      if (maxSub === 0) return sum; // Skip excluded subjects
+      return sum + (Number(studentMarks?.[sub]) || 0);
+    }, 0);
   };
 
   const calculateTotalMaxScore = () => {
-    return standardSubjects.reduce((sum, sub) => sum + (Number(maxMarksConfig[sub]) || 100), 0);
+    return standardSubjects.reduce((sum, sub) => {
+      const maxSub = Number(maxMarksConfig[sub]) || 0;
+      return sum + maxSub; // If 0, adds nothing to grand total
+    }, 0);
   };
 
   const calculateGrade = (percentage) => {
@@ -357,16 +361,17 @@ export default function ClassResultManager({ currentUser }) {
 
         const mergedMarks = {};
         standardSubjects.forEach(sub => {
-          mergedMarks[sub] = m[sub] !== '' && m[sub] !== undefined ? Number(m[sub]) : 0;
+          const maxSub = Number(maxMarksConfig[sub]) || 0;
+          if (maxSub === 0) {
+            mergedMarks[sub] = 0; // Set to 0 if excluded
+          } else {
+            mergedMarks[sub] = m[sub] !== '' && m[sub] !== undefined ? Number(m[sub]) : 0;
+          }
         });
 
         mergedMarks._maxMarksConfig = maxMarksConfig;
 
-        let totalObtained = 0;
-        standardSubjects.forEach(sub => {
-          totalObtained += Number(mergedMarks[sub]) || 0;
-        });
-
+        let totalObtained = calculateTotalObtained(m);
         const percentage = totalMaxScore > 0 ? (totalObtained / totalMaxScore) * 100 : 0;
         const grade = calculateGrade(percentage);
 
@@ -384,12 +389,10 @@ export default function ClassResultManager({ currentUser }) {
         };
       });
 
-      // Always save locally first
       const offlineCacheKey = `almadni_marks_${selectedClass}_${term}`;
       localStorage.setItem(offlineCacheKey, JSON.stringify(marksData));
 
       if (!navigator.onLine) {
-        // Queue for background sync when offline
         const pendingQueueKey = 'almadni_offline_sync_queue';
         const existingQueue = JSON.parse(localStorage.getItem(pendingQueueKey) || '[]');
         existingQueue.push({ class: selectedClass, term, records: recordsToUpsert });
@@ -423,7 +426,7 @@ export default function ClassResultManager({ currentUser }) {
 
     const totalMaxScore = calculateTotalMaxScore();
     let csvContent = "data:text/csv;charset=utf-8,";
-    const headers = ["GR Number", "Student Name", "Father's Name", "Shift", "Gender", ...standardSubjects.map(s => `${s} (Max ${maxMarksConfig[s] || 100})`), "Total Obtained", "Max Marks", "Percentage", "Grade", "Remarks"];
+    const headers = ["GR Number", "Student Name", "Father's Name", "Shift", "Gender", ...standardSubjects.map(s => `${s} (Max ${maxMarksConfig[s] || 0})`), "Total Obtained", "Max Marks", "Percentage", "Grade", "Remarks"];
     csvContent += headers.join(",") + "\n";
 
     students.forEach((st) => {
@@ -439,7 +442,7 @@ export default function ClassResultManager({ currentUser }) {
         `"${st.father_name || ''}"`,
         st.shift || shiftFilter,
         st.gender || 'Male',
-        ...standardSubjects.map(sub => m[sub] ?? 0),
+        ...standardSubjects.map(sub => Number(maxMarksConfig[sub]) === 0 ? 'Excluded' : (m[sub] ?? 0)),
         total,
         totalMaxScore,
         percentage + '%',
@@ -475,7 +478,12 @@ export default function ClassResultManager({ currentUser }) {
 
     let subjectDetails = '';
     standardSubjects.forEach(sub => {
-      subjectDetails += `• ${sub}: ${m[sub] || 0}/${maxMarksConfig[sub] || 100}\n`;
+      const maxSub = Number(maxMarksConfig[sub]) || 0;
+      if (maxSub > 0) {
+        subjectDetails += `• ${sub}: ${m[sub] || 0}/${maxSub}\n`;
+      } else {
+        subjectDetails += `• ${sub}: Excluded (0)\n`;
+      }
     });
 
     const message = `🏫 *AL-MADNI SECONDARY SCHOOL B.A.B. MATIARI*
@@ -506,7 +514,6 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="print:hidden">
-        {/* Network status indicator bar */}
         <div className="mb-4 flex justify-between items-center bg-slate-100 px-4 py-2 rounded-xl text-xs font-semibold border border-slate-200">
           <div className="flex items-center gap-2">
             <span className={`w-3 h-3 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
@@ -587,26 +594,29 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
           </div>
         </div>
 
-        {/* Dedicated Easy Subject Max Marks Setup Panel */}
+        {/* Dedicated Easy Subject Max Marks Setup Panel (Set to 0 to exclude) */}
         <div className="mb-6 bg-slate-50 border border-slate-200 p-4 rounded-xl">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-            ⚙️ Set Subject Total/Max Marks (Click any box to adjust exam total):
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+            ⚙️ Set Subject Total/Max Marks (Set to 0 to exclude un-tested subjects from totals):
           </h3>
+          <p className="text-[11px] text-slate-500 mb-3">If a subject was not taken, set its max marks to 0 so it won't affect grand totals or percentages.</p>
           <div className="flex flex-wrap gap-3">
             {standardSubjects.map((sub) => {
               const isEditable = isHm || activeEditableSubjects.includes(sub);
+              const subMax = maxMarksConfig[sub] ?? 100;
+              const isExcluded = Number(subMax) === 0;
               return (
-                <div key={sub} className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border ${isEditable ? 'border-indigo-300 shadow-sm' : 'border-slate-200 opacity-75'}`}>
-                  <span className={`text-xs font-semibold ${isEditable ? 'text-indigo-900' : 'text-slate-500'}`}>{sub}:</span>
+                <div key={sub} className={`flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border ${isExcluded ? 'border-rose-300 bg-rose-50/20' : isEditable ? 'border-indigo-300 shadow-sm' : 'border-slate-200 opacity-75'}`}>
+                  <span className={`text-xs font-semibold ${isExcluded ? 'text-rose-800' : isEditable ? 'text-indigo-900' : 'text-slate-500'}`}>{sub}:</span>
                   <input
                     type="number"
-                    min="1"
+                    min="0"
                     max="500"
                     disabled={!isEditable}
-                    value={maxMarksConfig[sub] ?? 100}
+                    value={subMax}
                     onChange={(e) => handleMaxMarkChange(sub, e.target.value)}
                     onFocus={(e) => e.target.select()}
-                    className="w-14 text-center border border-slate-300 rounded px-1.5 py-0.5 text-xs font-bold text-blue-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-14 text-center border rounded px-1.5 py-0.5 text-xs font-bold focus:outline-none focus:ring-2 ${isExcluded ? 'border-rose-400 text-rose-700 bg-rose-50' : 'border-slate-300 text-blue-700 bg-slate-50 focus:bg-white focus:ring-blue-500'}`}
                   />
                 </div>
               );
@@ -636,10 +646,13 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                     {standardSubjects.map((sub) => {
                       const isEditable = isHm || activeEditableSubjects.includes(sub);
                       const subMax = maxMarksConfig[sub] ?? 100;
+                      const isExcluded = Number(subMax) === 0;
                       return (
-                        <th key={sub} className={`p-3 text-center ${isEditable ? 'text-indigo-700 font-bold bg-indigo-50/30' : 'text-gray-400'}`}>
+                        <th key={sub} className={`p-3 text-center ${isExcluded ? 'bg-rose-50/50 text-rose-800' : isEditable ? 'text-indigo-700 font-bold bg-indigo-50/30' : 'text-gray-400'}`}>
                           <div>{sub}</div>
-                          <div className="text-[10px] font-semibold text-slate-500 mt-0.5">Out of {subMax}</div>
+                          <div className={`text-[10px] font-semibold mt-0.5 ${isExcluded ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
+                            {isExcluded ? 'Excluded (0)' : `Out of ${subMax}`}
+                          </div>
                         </th>
                       );
                     })}
@@ -676,9 +689,13 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
                         {standardSubjects.map((sub) => {
                           const isEditable = isHm || activeEditableSubjects.includes(sub);
                           const subjectMax = maxMarksConfig[sub] ?? 100;
+                          const isExcluded = Number(subjectMax) === 0;
+
                           return (
-                            <td key={sub} className="p-3 text-center">
-                              {isEditable ? (
+                            <td key={sub} className={`p-3 text-center ${isExcluded ? 'bg-rose-50/20' : ''}`}>
+                              {isExcluded ? (
+                                <span className="text-xs text-rose-500 font-medium italic">Excluded</span>
+                              ) : isEditable ? (
                                 <input
                                   type="number"
                                   min="0"
@@ -775,6 +792,8 @@ Submitted by: ${isHm ? 'Headmaster' : teacherInfo?.name}`;
             <tbody>
               {standardSubjects.map((sub) => {
                 const subjectMax = maxMarksConfig[sub] ?? 100;
+                const isExcluded = Number(subjectMax) === 0;
+                if (isExcluded) return null; // Hide excluded subjects from printed report card
                 return (
                   <tr key={sub}>
                     <td className="border border-slate-800 p-1.5">{sub}</td>
